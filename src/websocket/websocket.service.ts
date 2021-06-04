@@ -10,7 +10,7 @@ import { Server } from 'ws';
 
 export const store: any = {}
 
-@WebSocketGateway(8181)
+@WebSocketGateway(8181, {path: '/client'})
 export class WebsocketService {
   @WebSocketServer()
   server: Server;

@@ -79,7 +79,7 @@ export class AppService implements OnModuleInit {
 
         /////////////ENVIA MENSAGEM/////////////////////
         if(response.hasOwnProperty('message')){
-          const socket = await new WebSocket('ws://localhost:8181');
+          const socket = await new WebSocket('ws://localhost:8181/client');
           socket.onopen = async function() {
             await socket.send(
               JSON.stringify({
@@ -180,7 +180,7 @@ export class AppService implements OnModuleInit {
             /////// FINAL IMPRESSAO
           }
         }
-        const socket = await new WebSocket('ws://localhost:8181');
+        const socket = await new WebSocket('ws://localhost:8181/client');
         socket.onopen = async function() {
           await socket.send(
             JSON.stringify({
