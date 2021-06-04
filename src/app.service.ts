@@ -38,6 +38,7 @@ export class AppService implements OnModuleInit {
 
   async connectClient(){
     return await io('https://homolog.poupatempo.potencialtecnologia.com.br')
+    //return await io('http://localhost:9000')
   }
 
   async connectSocket(doc){
@@ -173,6 +174,11 @@ export class AppService implements OnModuleInit {
                     let dataLength = `{"IdProdesp":${response.IdProdesp},"IdPotencial":"${response.IdPotencial}","Status":0}`
                     await client.write(`${("00000" + dataLength.length).slice(-5)}02{"IdProdesp":${response.IdProdesp},"IdPotencial":"${response.IdPotencial}","Status":0}`);
                   });
+
+                  let socket = await this.connectClient()
+                  socket.emit('send-transacao-success', {
+                    traNsu: response.IdPotencial
+                  });
                 }
             } catch(error){
                 console.log(error)
@@ -194,5 +200,13 @@ export class AppService implements OnModuleInit {
         };
       }
     })
+  }
+
+  async sendMessage(data){
+    let socket = await this.connectClient()
+    socket.emit('send-transacao-success', {
+      traNsu: data
+    });
+    console.log(socket)
   }
 }
