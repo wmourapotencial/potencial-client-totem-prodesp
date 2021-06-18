@@ -1,13 +1,13 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Post } from '@nestjs/common';
 import { AppService } from './app.service';
 import { io } from 'socket.io-client'
 
-@Controller('app')
+@Controller('v1/app')
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
-  @Get()
+  @Post()
   async sendMessage() {
-    return await this.appService.sendMessage('0032|J9619589|210604');
+    return await this.appService.testHttpsAgent();
   }
 }

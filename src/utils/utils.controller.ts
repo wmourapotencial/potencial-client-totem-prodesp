@@ -8,12 +8,12 @@ export class UtilsController {
 
     constructor(private readonly utilsService: UtilsService) {}
 
-    @Get('getStatusPinpad')
+    @Get('getstatuspinpad')
     async consultarTransacao() {
         return await this.utilsService.getStatusPinpad();
     }
 
-    @Get('getStatusImpressora')
+    @Get()
     async consultarImpressora() {
         return await this.utilsService.getStatusImpressora();
     }
