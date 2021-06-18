@@ -159,7 +159,7 @@ export class AppService implements OnModuleInit {
         IdPotencial: doc.traNsu,
         IdProdesp: doc.id,
         CodigoOperacao: doc.codigoServico,
-        Documento: doc.codigoBarras
+        Documento: doc.codigoBarrasDigitavel
       }
     }
     
