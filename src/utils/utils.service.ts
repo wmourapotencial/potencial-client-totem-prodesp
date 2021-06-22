@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { environment } from 'src/common/environment';
 const axios = require('axios')
 const WebSocket = require('ws')
 
@@ -9,7 +10,7 @@ export class UtilsService {
 
     async getStatusPinpad(){
         try {
-            let pinpad = await axios.get(`http://localhost:8080/api/getstatuspinpad`)
+            let pinpad = await axios.get(`${environment.impressora.url}/api/getstatuspinpad`)
             return pinpad.data
         } catch(error){
             console.log(error)
@@ -18,7 +19,7 @@ export class UtilsService {
     
     async getStatusImpressora(){
         try {
-            let impressora = await axios.get(`http://localhost:8080/api/getstatusprinter`)
+            let impressora = await axios.get(`${environment.impressora.url}/api/getstatusprinter`)
             return impressora.data
         } catch(error){
             console.log(error)
@@ -78,7 +79,7 @@ export class UtilsService {
 
         if(verificaImpressora.getstatusprinter == "1"){
             try {
-                let impressao = await axios.post(`http://localhost:8080/api/postjsontoprint`, json)
+                let impressao = await axios.post(`${environment.impressora.url}/api/postjsontoprint`, json)
                 return impressao
             } catch(error){
                 console.log(error)
