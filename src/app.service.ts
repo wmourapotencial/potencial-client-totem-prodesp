@@ -4,12 +4,9 @@ import * as address from 'address'
 import * as net from 'net'
 const WebSocket = require('ws')
 const axios = require('axios')
-import * as https from 'https'
-import * as fs from 'fs'
 import { WebsocketService, store } from './websocket/websocket.service';
 import { UtilsService } from './utils/utils.service';
 import { environment } from './common/environment';
-import * as os from 'os'
 let socketIo
 
 @Injectable()
@@ -23,29 +20,16 @@ export class AppService implements OnModuleInit {
   private readonly logger = new Logger(AppService.name);
 
   async onModuleInit() {
-    this.logger.log('Conecta socket server potencial.')
-    socketIo = await this.connectClient()
-
-    // this.logger.log('Verifica se cliente ja tem os dados de login do gcb.')
-    // let macaddress = ''
-    // address.mac(function (err, addr) {
-    //   macaddress = addr
-    // });
-    
-    // await socketIo.on("connect", async () => {
-    //   socketIo.emit('send-verifica-vinculo-chave', {
-    //     macaddress: macaddress
-    //   });
-    // })
-
     this.logger.log(`Inicializado serviços...`);
-    
-    
+
     //verifica se equipamentos estão connectados, caso contrario fica em looping
-    let statusEquipamentos = await this.verificaImpressoaraPinpad()
-    do {
-      statusEquipamentos = await this.verificaImpressoaraPinpad()
-    }while(!statusEquipamentos)
+    // let statusEquipamentos = await this.verificaImpressoaraPinpad()
+    // do {
+    //   statusEquipamentos = await this.verificaImpressoaraPinpad()
+    // }while(!statusEquipamentos)
+
+    //conecta cliente socket potencial
+    socketIo = await this.connectClient()
 
     //fica ouvindo event send-transacao (o envio de uma transação por nosso socket potencial)
     await socketIo.on("connect", async () => {
@@ -96,18 +80,8 @@ export class AppService implements OnModuleInit {
   }
 
   async connectClient(){
-    return await io(environment.socket.url, {
-      ca: fs.readFileSync(__dirname + '/fullchain.pem'),
-      cert: fs.readFileSync(__dirname + '/certificate.pem'),
-      key: fs.readFileSync(__dirname + '/key.pem'),
-      rejectUnauthorized: false
-    })
-    //return await io('https://localhost:9003')
-    // return await require ( "socket.io-client" ) ( environment.socket.url , { 
-    //   ca: fs.readFileSync (__dirname + '/fullchain.pem'), 
-    //   cert: fs.readFileSync (__dirname + '/certificate.pem'), 
-    //   key: fs.readFileSync (__dirname + '/key.pem')
-    // });
+    return await io(environment.socket.url)
+    //return await io('http://localhost:9000')
   }
 
   async connectSocket(doc){
@@ -165,6 +139,41 @@ export class AppService implements OnModuleInit {
     
     let client = new net.Socket();
     await client.connect(5002, environment.socketPotencial.url, async function() {
+
+      ///////// VERIFICA SE IMPRESSORA ESTA ONLINE INICIO
+      // async function impressora(){
+      //   try {
+      //     let impressora = await axios.get(`${environment.impressora.url}/api/getstatusprinter`)
+      //     console.log(impressora.data.getstatusprinter)
+      //     //getstatusprinter
+      //     if(impressora.data.getstatusprinter != 1){
+      //       //this.sendMessage('Sem conexão com a impressora. Por favor, verifique.')
+      //       const socket = await new WebSocket('ws://localhost:8181/client');
+      //       socket.onopen = async function() {
+      //         await socket.send(
+      //           JSON.stringify({
+      //             event: 'client',
+      //             data: 'Sem conexão com a impressora. Por favor, verifique.',
+      //           }),
+      //         );
+      //         socket.onmessage = function(data) {
+      //           console.log(data.data);
+      //         };
+      //       };
+      //       return false
+      //     }
+      
+      //     return true
+      //   } catch(error) {
+      //       console.log(error)
+      //   }
+      // }
+
+      // let statusImpressora = await impressora()
+      // do {
+      //   statusImpressora = await impressora()
+      // }while(!statusImpressora)
+
       console.log(`${("00000" + JSON.stringify(transacao).length).slice(-5)}01${JSON.stringify(transacao)}`)
       await client.write(`${("00000" + JSON.stringify(transacao).length).slice(-5)}01${JSON.stringify(transacao)}`);
     });
@@ -263,38 +272,38 @@ export class AppService implements OnModuleInit {
             json.push({"cmds":["totalcut"],"txt":""})
 
             /////////// VERIFICA SE IMPRESSORA ESTA ONLINE INICIO
-            async function impressora(){
-              try {
-                let impressora = await axios.get(`${environment.impressora.url}/api/getstatusprinter`)
-                console.log(impressora.data.getstatusprinter)
-                //getstatusprinter
-                if(impressora.data.getstatusprinter != 1){
-                  //this.sendMessage('Sem conexão com a impressora. Por favor, verifique.')
-                  const socket = await new WebSocket('ws://localhost:8181/client');
-                  socket.onopen = async function() {
-                    await socket.send(
-                      JSON.stringify({
-                        event: 'client',
-                        data: 'Sem conexão com a impressora. Por favor, verifique.',
-                      }),
-                    );
-                    socket.onmessage = function(data) {
-                      console.log(data.data);
-                    };
-                  };
-                  return false
-                }
+            // async function impressora(){
+            //   try {
+            //     let impressora = await axios.get(`${environment.impressora.url}/api/getstatusprinter`)
+            //     console.log(impressora.data.getstatusprinter)
+            //     //getstatusprinter
+            //     if(impressora.data.getstatusprinter != 1){
+            //       //this.sendMessage('Sem conexão com a impressora. Por favor, verifique.')
+            //       const socket = await new WebSocket('ws://localhost:8181/client');
+            //       socket.onopen = async function() {
+            //         await socket.send(
+            //           JSON.stringify({
+            //             event: 'client',
+            //             data: 'Sem conexão com a impressora. Por favor, verifique.',
+            //           }),
+            //         );
+            //         socket.onmessage = function(data) {
+            //           console.log(data.data);
+            //         };
+            //       };
+            //       return false
+            //     }
             
-                return true
-              } catch(error) {
-                  console.log(error)
-              }
-            }
+            //     return true
+            //   } catch(error) {
+            //       console.log(error)
+            //   }
+            // }
 
-            let statusImpressora = await impressora()
-            do {
-              statusImpressora = await impressora()
-            }while(!statusImpressora)
+            // let statusImpressora = await impressora()
+            // do {
+            //   statusImpressora = await impressora()
+            // }while(!statusImpressora)
             /////////// VERIFICA SE IMPRESSORA ESTA ONLINE FINAL
             
             async function impressao(){
@@ -573,40 +582,19 @@ export class AppService implements OnModuleInit {
     };
   }
 
-  async testHttpsAgent(){
-    try {
-      let data = {
-        "id": 0,
-        "codigoServico": 3,
-        "codigoBarras": "60c2685cfda87a46b312f6c8",
-        "valorDesconto": "sem desconto",
-        "valorNominal": 107.00,
-        "valorTitulo": "Um real",
-        "dataVencimento": "30/06/2021",
-        "codigoBarrasDigitavel": "0",
-        "canalPagamento": 2,
-        "convenioId": 300,
-        "codigoTerminal": 300,
-        "Status": 0,
-        "comprovanteSistema": ""
-      }
-
-      var config = {
-        method: 'post',
-        //url: `https://desenv.poupatempo.potencialtecnologia.com.br/v1/transacoes`,
-        url: `https://localhost:9003/v1/transacoes`,
-        httpsAgent: new https.Agent({
-            keepAlive: false,
-            ca: fs.readFileSync(__dirname + '/fullchain.pem')
-        }),
-        data : data
+  async sendMessageAbort(){
+    console.log('service')
+    const socket = await new WebSocket('ws://localhost:8181/client');
+    socket.onopen = async function() {
+      await socket.send(
+        JSON.stringify({
+          event: 'client',
+          data: 'ABORT',
+        })
+      );
+      socket.onmessage = function(data) {
+        console.log(data.data);
       };
-
-      let teste = await axios(config)
-      console.log(teste)
-      return teste.data
-    } catch(error){
-      console.log(error)
-    }
+    };
   }
 }
