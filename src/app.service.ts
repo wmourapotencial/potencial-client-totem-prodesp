@@ -136,44 +136,45 @@ export class AppService implements OnModuleInit {
         Documento: doc.codigoBarrasDigitavel
       }
     }
+
+    async function impressora(){
+      try {
+        let impressora = await axios.get(`${environment.impressora.url}/api/getstatususbprinter`)
+        console.log(impressora.data.getstatusprinter)
+        //getstatusprinter
+        if(impressora.data.printerfounded != 1 || impressora.data.printerhaspaper != 1 || impressora.data.printerisready != 1){
+          //this.sendMessage('Sem conexão com a impressora. Por favor, verifique.')
+          const socket = await new WebSocket('ws://localhost:8181/client');
+          socket.onopen = async function() {
+            await socket.send(
+              JSON.stringify({
+                event: 'client',
+                data: 'Sem conexão com a impressora. Por favor, verifique.',
+              }),
+            );
+            socket.onmessage = function(data) {
+              console.log(data.data);
+            };
+          };
+          return false
+        }
+    
+        return true
+      } catch(error) {
+          console.log(error)
+      }
+    }
+
+    let statusImpressora = await impressora()
+    do {
+      statusImpressora = await impressora()
+    }while(!statusImpressora)
     
     let client = new net.Socket();
     await client.connect(5002, environment.socketPotencial.url, async function() {
 
       ///////// VERIFICA SE IMPRESSORA ESTA ONLINE INICIO
-      async function impressora(){
-        try {
-          let impressora = await axios.get(`${environment.impressora.url}/api/getstatususbprinter`)
-          console.log(impressora.data.getstatusprinter)
-          //getstatusprinter
-          if(impressora.data.printerfounded != 1 || impressora.data.printerhaspaper != 1 || impressora.data.printerisready != 1){
-            //this.sendMessage('Sem conexão com a impressora. Por favor, verifique.')
-            const socket = await new WebSocket('ws://localhost:8181/client');
-            socket.onopen = async function() {
-              await socket.send(
-                JSON.stringify({
-                  event: 'client',
-                  data: 'Sem conexão com a impressora. Por favor, verifique.',
-                }),
-              );
-              socket.onmessage = function(data) {
-                console.log(data.data);
-              };
-            };
-            return false
-          }
       
-          return true
-        } catch(error) {
-            console.log(error)
-        }
-      }
-
-      let statusImpressora = await impressora()
-      do {
-        statusImpressora = await impressora()
-      }while(!statusImpressora)
-
       console.log(`${("00000" + JSON.stringify(transacao).length).slice(-5)}01${JSON.stringify(transacao)}`)
       await client.write(`${("00000" + JSON.stringify(transacao).length).slice(-5)}01${JSON.stringify(transacao)}`);
     });
