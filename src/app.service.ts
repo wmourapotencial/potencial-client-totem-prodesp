@@ -267,10 +267,10 @@ export class AppService implements OnModuleInit {
       ///////// VERIFICA SE IMPRESSORA ESTA ONLINE INICIO
       async function impressora(){
         try {
-          let impressora = await axios.get(`${environment.impressora.url}/api/getstatusprinter`)
+          let impressora = await axios.get(`${environment.impressora.url}/api/getStatusUsbImpressora`)
           console.log(impressora.data.getstatusprinter)
           //getstatusprinter
-          if(impressora.data.getstatusprinter != 1){
+          if(impressora.data.printerfounded != 1 || impressora.data.printerhaspaper != 1 || impressora.data.printerisready != 1){
             //this.sendMessage('Sem conexão com a impressora. Por favor, verifique.')
             const socket = await new WebSocket('ws://localhost:8181/client');
             socket.onopen = async function() {
@@ -390,10 +390,10 @@ export class AppService implements OnModuleInit {
             /////////// VERIFICA SE IMPRESSORA ESTA ONLINE INICIO
             async function impressora(){
               try {
-                let impressora = await axios.get(`${environment.impressora.url}/api/getstatusprinter`)
+                let impressora = await axios.get(`${environment.impressora.url}/api/getstatususbprinter`)
                 console.log(impressora.data.getstatusprinter)
                 //getstatusprinter
-                if(impressora.data.getstatusprinter != 1){
+                if(impressora.data.printerfounded != 1 || impressora.data.printerhaspaper != 1 || impressora.data.printerisready != 1){
                   //this.sendMessage('Sem conexão com a impressora. Por favor, verifique.')
                   const socket = await new WebSocket('ws://localhost:8181/client');
                   socket.onopen = async function() {
