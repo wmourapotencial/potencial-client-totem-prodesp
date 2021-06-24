@@ -4,7 +4,6 @@ import { MessageMappingProperties } from '@nestjs/websockets';
 import { Observable, fromEvent, EMPTY } from 'rxjs';
 import { mergeMap, filter } from 'rxjs/operators';
 
-let port = 9999
 
 export class WsAdapter implements WebSocketAdapter {
   constructor(private app: INestApplicationContext) {}
