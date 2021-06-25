@@ -7,9 +7,12 @@ const axios = require('axios')
 import { WebsocketService, store } from './websocket/websocket.service';
 import { UtilsService } from './utils/utils.service';
 import { environment } from './common/environment';
+import { TerminaisService } from './terminais/terminais.service';
 let socketIo
 let wsClients=[];
+let old = []
 const { exec, spawn } = require('child_process');
+import PromiseSocket from "promise-socket"
 //import * as isPortReachable from 'is-port-reachable'
 
 @Injectable()
@@ -18,40 +21,13 @@ export class AppService implements OnModuleInit {
   constructor(
     //private readonly websocketService: WebsocketService,
     private readonly utilsService: UtilsService,
+    private readonly terminaisService: TerminaisService,
 ) {}
 
   private readonly logger = new Logger(AppService.name);
 
   async onModuleInit() {
     this.logger.log(`Inicializado serviços...`);
-
-    // await setTimeout( async () => {
-    //   //"C:\\Program Files (x86)\\BBPotencial\\BB\\PGTO_POTENCIAL.jar"
-    //   //"/Users/xitaomoura/Projetos/poupatempo_totem_prodesp/potencial-client-totem-prodesp/PGTO_POTENCIAL.jar"
-    //   await exec('java -jar "C:\\Program Files (x86)\\BBPotencial\\BB\\PGTO_POTENCIAL.jar"', (err, stdout, stderr) => {
-    //     if (err) {
-    //       console.error(err);
-    //       return;
-    //     }
-    //     console.log('iniciando o gcb...')
-    //     console.log(stdout);
-    //   });
-    // }, 60000)
-    //for(let i = 0; i<300000;i++){
-      //console.log('inicio')
-      //if(i == 60){
-        // await exec('java -jar "C:\\Program Files (x86)\\BBPotencial\\BB\\PGTO_POTENCIAL.jar"', (err, stdout, stderr) => {
-        //   if (err) {
-        //     console.error(err);
-        //     return;
-        //   }
-        //   console.log('iniciando o gcb...')
-        //   console.log(stdout);
-        // });
-      //}
-      //console.log('fim')
-    //}
-    //this.logger.log(`Iniciou gcb...`);
 
     await this.websocket()
   
@@ -65,27 +41,9 @@ export class AppService implements OnModuleInit {
     
     //fica ouvindo event send-transacao (o envio de uma transação por nosso socket potencial)
     await socketIo.on("connect", async () => {
-      this.logger.log('client connectado ao socket potencial')
+      await this.logger.log('client connectado ao socket potencial')
 
-      // let client3 = new net.Socket();
-      // await client3.connect(5003, environment.socketPotencial.url, async function() {
-      //   await client3.write(`_LOGINDT`);
-      //   console.log('mensagem _logindt enviada para o jar')
-      // })
-
-      // await client3.on('data', async function(data) {
-      //   console.log('Received data abort: ' + data);
-      // })
-
-      // await client3.on('end', async function() {
-      //   console.log('Received end abort: ');
-      //   client3.destroy()
-      // })
-
-      // client3.on('error', function(ex) {
-      //   console.log("handled error");
-      //   console.log(ex);
-      // });
+      await this.atualizaSocketClient()
 
       await socketIo.on('send-transacao', async (transacao) => {
         await this.connectSocket(transacao)
@@ -119,6 +77,28 @@ export class AppService implements OnModuleInit {
         })
       })
     }, 80000)
+  }
+
+  async atualizaSocketClient(){
+    const client3 = new net.Socket();
+      const promiseSocket = new PromiseSocket(client3)
+      await promiseSocket.connect({port: 5003, host: environment.socketPotencial.url})
+
+      await promiseSocket.write(`LOGINDT`)
+      const response = (await promiseSocket.readAll()) as Buffer
+      if (response) {
+        console.info(response.toString())
+        let terminal = JSON.parse(response.toString())
+        console.log(terminal)
+        let terminalMongo = await this.terminaisService.consultarTerminalChaveJ(terminal.Operador.chavej)
+        if(terminalMongo.hasOwnProperty('error')){
+          console.log(terminalMongo.error)
+          console.log()
+        }else{
+
+        }
+      }
+      await promiseSocket.end()
   }
 
   async websocket(){

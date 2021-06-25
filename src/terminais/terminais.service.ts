@@ -55,6 +55,15 @@ export class TerminaisService {
         return await this.terminalModel.findOne({_id}).exec()
     }
 
+    async consultarTerminalChaveJ(chavej: string): Promise<any> {
+        const terminalEncontrado = await this.terminalModel.findOne({chavej: chavej}).exec()
+        if(!terminalEncontrado){
+            //throw new BadRequestException(`Terminal com a chavej ${chavej} não encontrado`)
+            return await { error: 1 }
+        }
+        return await this.terminalModel.findOne({chavej: chavej}).exec()
+    }
+
     async deletarTerminal(_id: string): Promise<any> {
         const terminalEncontrado = await this.terminalModel.findOne({_id}).exec()
         if(!terminalEncontrado){

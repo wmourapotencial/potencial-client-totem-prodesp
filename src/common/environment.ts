@@ -17,9 +17,9 @@ export const environment = {
     },
     db: {
         //url: process.env.DB_URL || 'mongodb://potencialGatewayTotemProdespHomolog:rewq987aa@localhost:27017', //homologação
-        url: process.env.DB_URL || 'mongodb://potencialGatewayTotemProdesp:rewq987aa@localhost:27017', //produção
-        //url: process.env.DB_URL || 'mongodb://potencialGatewayTotemProdespHomolog:rewq987aa@177.184.29.139:27017', //local x homologação
-        database: process.env.DATA_BASE || 'potencial-gateway-totem-prodesp-api' //produção
-        //database: process.env.DATA_BASE || 'potencial-gateway-totem-prodesp-api-homolog' //homologação
+        //url: process.env.DB_URL || 'mongodb://potencialGatewayTotemProdesp:rewq987aa@localhost:27017', //produção
+        url: process.env.DB_URL || 'mongodb://potencialGatewayTotemProdespHomolog:rewq987aa@177.184.29.139:27017', //local x homologação
+        //database: process.env.DATA_BASE || 'potencial-gateway-totem-prodesp-api' //produção
+        database: process.env.DATA_BASE || 'potencial-gateway-totem-prodesp-api-homolog' //homologação
     }
 }
