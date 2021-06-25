@@ -51,17 +51,15 @@ export class AppService implements OnModuleInit {
       //}
       //console.log('fim')
     //}
-    this.logger.log(`Iniciou gcb...`);
+    //this.logger.log(`Iniciou gcb...`);
 
     await this.websocket()
   
-    await setTimeout( async () => {
-      //verifica se equipamentos estão connectados, caso contrario fica em looping
-      let statusEquipamentos = await this.verificaImpressoaraPinpad()
-      do {
-        statusEquipamentos = await this.verificaImpressoaraPinpad()
-      }while(!statusEquipamentos)
-    }, 30000)
+    //verifica se equipamentos estão connectados, caso contrario fica em looping
+    let statusEquipamentos = await this.verificaImpressoaraPinpad()
+    do {
+      statusEquipamentos = await this.verificaImpressoaraPinpad()
+    }while(!statusEquipamentos)
 
     socketIo = await this.connectClient()
     
@@ -264,7 +262,7 @@ export class AppService implements OnModuleInit {
     ///////// VERIFICA SE IMPRESSORA ESTA ONLINE INICIO
     async function impressora(){
       try {
-        let impressora = await axios.get(`${environment.impressora.url}/api/getStatusUsbImpressora`)
+        let impressora = await axios.get(`${environment.impressora.url}/api/getstatususbprinter`)
         console.log(impressora.data.getstatusprinter)
         //getstatusprinter
         if(impressora.data.printerfounded != 1 || impressora.data.printerhaspaper != 1 || impressora.data.printerisready != 1){
@@ -317,7 +315,17 @@ export class AppService implements OnModuleInit {
           socket.onopen = async function() {
             // console.log(`mensagem: ${response.message}`)
             // console.log(`mensagem 2: ${response.message.replace('"', '')}`)
-            await socket.send(response.message.replace('"', ''));
+            await socket.send(response.message);
+            socket.onmessage = function(data) {
+              console.log(data.data);
+            };
+          };
+        }if(response.hasOwnProperty('StatusMensagem')){
+          const socket = await new WebSocket('ws://localhost:8181/client');
+          socket.onopen = async function() {
+            // console.log(`mensagem: ${response.message}`)
+            // console.log(`mensagem 2: ${response.message.replace('"', '')}`)
+            await socket.send(response.StatusMensagem);
             socket.onmessage = function(data) {
               console.log(data.data);
             };

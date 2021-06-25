@@ -4,16 +4,16 @@ export const environment = {
         //url: 'https://desenv.poupatempo.potencialtecnologia.com.br'
         //url: 'https://homolog.poupatempo.potencialtecnologia.com.br'
         // url: 'https://preprod-poupatempo.potencialtecnologia.com.br'
-        url: 'https://prod-poupatempo.potencialtecnologia.com.br'
-        //url: 'http://177.184.29.139:9001'
+        //url: 'https://prod-poupatempo-socket.potencialtecnologia.com.br'
+        url: 'http://177.184.29.139:9010'
     },
     impressora: {
-        //url: 'http://192.168.88.23:8080',
-        url: 'http://localhost:8080'
+        url: 'http://192.168.0.23:8080',
+        //url: 'http://localhost:8080'
     },
     socketPotencial: {
-        //url: '192.168.88.23'
-        url: '127.0.0.1'
+        url: '192.168.0.23'
+        //url: '127.0.0.1'
     },
     db: {
         //url: process.env.DB_URL || 'mongodb://potencialGatewayTotemProdespHomolog:rewq987aa@localhost:27017', //homologação
