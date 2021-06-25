@@ -8,12 +8,13 @@ import { WebsocketService, store } from './websocket/websocket.service';
 import { UtilsService } from './utils/utils.service';
 import { environment } from './common/environment';
 let socketIo
+let wsClients = []
 
 @Injectable()
 export class AppService implements OnModuleInit {
 
   constructor(
-    private readonly websocketService: WebsocketService,
+    //private readonly websocketService: WebsocketService,
     private readonly utilsService: UtilsService
 ) {}
 
@@ -21,6 +22,8 @@ export class AppService implements OnModuleInit {
 
   async onModuleInit() {
     this.logger.log(`Inicializado serviços...`);
+
+    await this.websocket()
 
     //verifica se equipamentos estão connectados, caso contrario fica em looping
     let statusEquipamentos = await this.verificaImpressoaraPinpad()
@@ -35,10 +38,49 @@ export class AppService implements OnModuleInit {
     await socketIo.on("connect", async () => {
       this.logger.log('client connectado ao socket potencial')
       await socketIo.on('send-transacao', async (transacao) => {
-        //console.log('connect')
         await this.connectSocket(transacao)
       })
     })
+  }
+
+  async websocket(){
+    const wss = new WebSocket.Server({ port: 8181, path: '/client' })
+    wss.on('connection', ws => {
+      console.log('new connection');
+      wsClients.push(ws);
+
+      ws.on('message', message => {
+        console.log(`Received message => ${message}`)
+
+        if(message == 'ABORT'){
+          console.log('mensagem abort recebida')
+            let client2 = new net.Socket();
+            client2.connect(5003, environment.socketPotencial.url, async function() {
+                client2.write(`_ABORT_`);
+                console.log('mensagem abort enviada para o jar')
+            })
+
+            client2.on('data', async function(data) {
+                console.log('Received data abort: ' + data);
+            })
+
+            client2.on('end', async function() {
+                console.log('Received end abort: ');
+                // client2.destroy()
+            })
+        }else{
+          console.log(JSON.parse(message).data)
+          this.broadcast(JSON.parse(message).data)
+        }
+      })
+    });
+  }
+
+  public broadcast(message: any) {
+    const broadCastMessage = message;
+    for (let c of wsClients) {
+        c.send(broadCastMessage);
+    }
   }
 
   async verificaImpressoaraPinpad(){
