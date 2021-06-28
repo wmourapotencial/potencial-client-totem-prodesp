@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as io from "socket.io-client";
 import * as address from 'address'
 import * as net from 'net'
+import * as os from 'os'
 const WebSocket = require('ws')
 const axios = require('axios')
 import { WebsocketService, store } from './websocket/websocket.service';
@@ -30,6 +31,15 @@ export class AppService implements OnModuleInit {
     this.logger.log(`Inicializado serviços...`);
 
     await this.websocket()
+    socketIo = await this.connectClient()
+    //fica ouvindo event send-transacao (o envio de uma transação por nosso socket potencial)
+    await socketIo.on("connect", async () => {
+      await this.logger.log('client connectado ao socket potencial')
+      await this.atualizaSocketClient(socketIo.id)
+      await socketIo.on('send-transacao', async (transacao) => {
+        await this.connectSocket(transacao)
+      })
+    })
   
     //verifica se equipamentos estão connectados, caso contrario fica em looping
     let statusEquipamentos = await this.verificaImpressoaraPinpad()
@@ -37,41 +47,12 @@ export class AppService implements OnModuleInit {
       statusEquipamentos = await this.verificaImpressoaraPinpad()
     }while(!statusEquipamentos)
 
-    socketIo = await this.connectClient()
-    
-    //fica ouvindo event send-transacao (o envio de uma transação por nosso socket potencial)
-    await socketIo.on("connect", async () => {
-      await this.logger.log('client connectado ao socket potencial')
-
-      await this.atualizaSocketClient()
-
-      await socketIo.on('send-transacao', async (transacao) => {
-        await this.connectSocket(transacao)
-      })
-    })
-
     //reconecta cliente socket potencial a cada 5 minutos
     setInterval( async () => {
-
-      // let client4 = new net.Socket();
-      //   await client4.connect(5003, environment.socketPotencial.url, async function() {
-      //   await client4.write(`_LOGINDT`);
-      //   console.log('mensagem _logindt enviada para o jar')
-      // })
-
-      // await client4.on('data', async function(data) {
-      //   console.log('Received data abort: ' + data);
-      //   socketIo = await this.connectClient()
-      // })
-
-      // await client4.on('end', async function() {
-      //   console.log('Received end abort: ');
-      //   client4.destroy()
-      // })
-
       //fica ouvindo event send-transacao (o envio de uma transação por nosso socket potencial)
       await socketIo.on("connect", async () => {
         this.logger.log('client connectado ao socket potencial')
+        await this.atualizaSocketClient(socketIo.id)
         await socketIo.on('send-transacao', async (transacao) => {
           await this.connectSocket(transacao)
         })
@@ -79,7 +60,7 @@ export class AppService implements OnModuleInit {
     }, 80000)
   }
 
-  async atualizaSocketClient(){
+  async atualizaSocketClient(client){
     const client3 = new net.Socket();
       const promiseSocket = new PromiseSocket(client3)
       await promiseSocket.connect({port: 5003, host: environment.socketPotencial.url})
@@ -87,15 +68,39 @@ export class AppService implements OnModuleInit {
       await promiseSocket.write(`LOGINDT`)
       const response = (await promiseSocket.readAll()) as Buffer
       if (response) {
-        console.info(response.toString())
         let terminal = JSON.parse(response.toString())
-        console.log(terminal)
         let terminalMongo = await this.terminaisService.consultarTerminalChaveJ(terminal.Operador.chavej)
+        let statusPrint = await this.utilsService.getStatusImpressora()
+        let statusPinpad = await this.utilsService.getStatusPinpad()
+
+        let data = {
+          nome: terminal.Operador.nome,
+          macaddress: address.mac(function(err, addr){ return addr }),
+          ip: address.ip(),
+          uptime: os.uptime(),
+          hostname: os.hostname(),
+          printStatus: statusPrint.getstatusprinter,
+          pinpadStatus: statusPinpad.getstatuspinpad,
+          status: terminal.status,
+          client_id: client,
+          chavej: terminal.Operador.chavej,
+          terminal: terminal.terminal,
+          agencia: terminal.agencia,
+          loja: terminal.loja,
+          convenio: terminal.convenio
+        }
+        
         if(terminalMongo.hasOwnProperty('error')){
           console.log(terminalMongo.error)
-          console.log()
+          this.logger.log('Terminal não encontrado fazendo vinculo com cliente socket')
+          try{
+            await this.terminaisService.criarTerminal(data)
+          }catch(error){
+            console.log(error)
+          }
+          
         }else{
-
+          await this.terminaisService.atualizarTerminal(terminalMongo._id, data)
         }
       }
       await promiseSocket.end()
@@ -126,7 +131,7 @@ export class AppService implements OnModuleInit {
                 console.log('Received end abort: ');
                 // client2.destroy()
             })
-        }else{
+        } else {
           console.log(`broadcast: ${message}`)
           this.broadcast(message)
         }
@@ -181,9 +186,7 @@ export class AppService implements OnModuleInit {
 
   async connectClient(){
     let ioo = await io(environment.socket.url)
-    //console.log(ioo)
     return ioo
-    //return await io('http://localhost:9000')
   }
 
   async connectSocket(doc){

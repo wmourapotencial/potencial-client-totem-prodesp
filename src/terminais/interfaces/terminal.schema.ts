@@ -14,9 +14,25 @@ export const TerminalSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    uptime: {
+        type: String,
+        required: true
+    },
+    hostname: {
+        type: String,
+        required: true
+    },
+    printStatus: {
+        type: String,
+        required: true
+    },
+    pinpadStatus: {
+        type: String,
+        required: true
+    },
     status: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Status'
+        type: Number,
+        required: true
     },
     client_id: {
         type: String,

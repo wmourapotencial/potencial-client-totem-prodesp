@@ -14,7 +14,7 @@ export class TerminaisService {
 
     private readonly logger = new Logger(TerminaisService.name);
 
-    async criarTerminal(createTerminalDto: CreateTerminalDto): Promise<any> {
+    async criarTerminal(createTerminalDto): Promise<any> {
         const terminalCriado = new this.terminalModel(createTerminalDto)
         terminalCriado.save( (error, doc) => {
             if(!error){
@@ -25,7 +25,7 @@ export class TerminaisService {
         })
     }
 
-    async atualizarTerminal(_id: string, updateTerminalDto: UpdateTerminalDto): Promise<Terminal> {
+    async atualizarTerminal(_id: string, updateTerminalDto): Promise<Terminal> {
         const terminalEncontrado = await this.terminalModel.findOne({_id}).exec()
         if(!terminalEncontrado){
             throw new BadRequestException(`Terminal com o _id ${_id} não encontrado`)

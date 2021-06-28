@@ -3,9 +3,9 @@ export const environment = {
         //url: 'http://localhost:9005'
         //url: 'https://desenv.poupatempo.potencialtecnologia.com.br'
         //url: 'https://homolog.poupatempo.potencialtecnologia.com.br'
-        // url: 'https://preprod-poupatempo.potencialtecnologia.com.br'
-        //url: 'https://prod-poupatempo-socket.potencialtecnologia.com.br'
-        url: 'http://177.184.29.139:9010'
+        //url: 'https://preprod-poupatempo.potencialtecnologia.com.br'
+        url: 'https://prod-poupatempo.potencialtecnologia.com.br'
+        //url: 'http://177.184.29.139:9010'
     },
     impressora: {
         url: 'http://192.168.0.23:8080',

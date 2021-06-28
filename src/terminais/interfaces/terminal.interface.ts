@@ -4,7 +4,11 @@ export interface Terminal extends Document {
     nome: string,
     macaddress: string,
     ip: string,
-    status: string,
+    uptime: number,
+    hostname: string,
+    printStatus: string,
+    pinpadStatus: string,
+    status: number,
     client_id: string
     chavej: string
     terminal: string
@@ -12,5 +16,5 @@ export interface Terminal extends Document {
     loja: string
     convenio: string
     createdAt: Date,
-    updatedAt: Date,
+    updatedAt: Date
 }
