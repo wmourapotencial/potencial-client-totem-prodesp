@@ -26,6 +26,15 @@ export class UtilsService {
         }
     }
 
+    async getStatusUsbImpressora(){
+        try {
+            let impressora = await axios.get(`${environment.impressora.url}/api/getstatususbprinter`)
+            return impressora.data
+        } catch(error){
+            console.log(error)
+        }
+    }
+
     async setImpressao(data){
         
         let json = [

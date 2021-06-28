@@ -43,8 +43,6 @@ export class WebsocketService {
 
     @SubscribeMessage('client')
     async onChgEvent(client: any, payload: any) {
-        // console.log(client)
-        // console.log(payload)
         if(payload == 'ABORT'){
             console.log('mensagem abort recebida')
             let client2 = new net.Socket();
@@ -59,6 +57,7 @@ export class WebsocketService {
 
             await client2.on('end', async function() {
                 console.log('Received end abort: ');
+                client2.destroy()
             })
         }else{
             this.broadcast(payload, 'client');
