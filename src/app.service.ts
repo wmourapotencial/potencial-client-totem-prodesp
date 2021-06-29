@@ -14,7 +14,6 @@ let wsClients=[];
 let old = []
 const { exec, spawn } = require('child_process');
 import PromiseSocket from "promise-socket"
-//import * as isPortReachable from 'is-port-reachable'
 
 @Injectable()
 export class AppService implements OnModuleInit {
@@ -36,8 +35,13 @@ export class AppService implements OnModuleInit {
     await socketIo.on("connect", async () => {
       await this.logger.log('client connectado ao socket potencial')
       await this.atualizaSocketClient(socketIo.id)
+      console.log(socketIo.id)
       await socketIo.on('send-transacao', async (transacao) => {
         await this.connectSocket(transacao)
+      })
+
+      await socketIo.on('get-log', async (log) => {
+        await this.utilsService.getLog(log)
       })
     })
   
@@ -69,6 +73,8 @@ export class AppService implements OnModuleInit {
       const response = (await promiseSocket.readAll()) as Buffer
       if (response) {
         let terminal = JSON.parse(response.toString())
+        //console.log(terminal)
+        terminal.Operador.chavej = 'J9645500'
         let terminalMongo = await this.terminaisService.consultarTerminalChaveJ(terminal.Operador.chavej)
         let statusPrint = await this.utilsService.getStatusImpressora()
         let statusPinpad = await this.utilsService.getStatusPinpad()
@@ -87,7 +93,8 @@ export class AppService implements OnModuleInit {
           terminal: terminal.terminal,
           agencia: terminal.agencia,
           loja: terminal.loja,
-          convenio: terminal.convenio
+          convenio: terminal.convenio,
+          canal_pagamento: 2
         }
         
         if(terminalMongo.hasOwnProperty('error')){

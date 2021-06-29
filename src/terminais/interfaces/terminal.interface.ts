@@ -1,6 +1,7 @@
 import { Document } from 'mongoose'
 
 export interface Terminal extends Document {
+    indice: number,
     nome: string,
     macaddress: string,
     ip: string,
@@ -8,6 +9,7 @@ export interface Terminal extends Document {
     hostname: string,
     printStatus: string,
     pinpadStatus: string,
+    canal_pagamento: number,
     status: number,
     client_id: string
     chavej: string

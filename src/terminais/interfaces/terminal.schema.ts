@@ -1,6 +1,10 @@
 import * as mongoose from 'mongoose';
 
 export const TerminalSchema = new mongoose.Schema({
+    indice: {
+        type: Number,
+        required: true
+    },
     nome: {
         type: String,
         required: true
@@ -28,6 +32,10 @@ export const TerminalSchema = new mongoose.Schema({
     },
     pinpadStatus: {
         type: String,
+        required: true
+    },
+    canal_pagamento: {
+        type: Number,
         required: true
     },
     status: {

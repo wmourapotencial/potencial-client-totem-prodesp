@@ -1,4 +1,5 @@
 export class CreateTerminalDto {
+    indice: number
     nome: string
     macaddress: string
     ip: string
@@ -6,6 +7,7 @@ export class CreateTerminalDto {
     hostname: string
     printStatus: string
     pinpadStatus: string
+    canal_pagamento: number
     status: number
     client_id: string
     chavej: string

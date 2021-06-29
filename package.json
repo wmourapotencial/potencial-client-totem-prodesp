@@ -30,6 +30,7 @@
     "@nestjs/websockets": "^7.6.17",
     "@types/socket.io": "^3.0.2",
     "address": "^1.1.2",
+    "basic-ftp": "^4.6.6",
     "child_process": "^1.0.2",
     "getmac": "^5.17.0",
     "is-port-reachable": "^3.0.0",

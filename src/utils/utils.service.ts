@@ -2,6 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { environment } from 'src/common/environment';
 const axios = require('axios')
 const WebSocket = require('ws')
+import * as net from 'net'
+import PromiseSocket from "promise-socket"
+import * as ftp from 'basic-ftp'
 
 @Injectable()
 export class UtilsService {
@@ -118,5 +121,33 @@ export class UtilsService {
 
             await this.setImpressao(data)
         }
+    }
+
+    async getLog(log){
+        console.log(log)
+        const client3 = new net.Socket();
+        const promiseSocket = new PromiseSocket(client3)
+        await promiseSocket.connect({port: 5003, host: environment.socketPotencial.url})
+        await promiseSocket.write(`LOGINDT`)
+        const response = (await promiseSocket.readAll()) as Buffer
+        let terminal = JSON.parse(response.toString())
+
+        const client = new ftp.Client()
+        client.ftp.verbose = true
+        try {
+            await client.access({
+                host: "200.219.222.116",
+                user: "potencialbh",
+                password: "In12pot@1609",
+                secure: false
+            })
+            //console.log(await client.list())
+            await client.uploadFrom(`/Users/xitaomoura/Projetos/poupatempo_totem_prodesp/potencial-client-totem-prodesp/${log}`, `totem-prodesp/${terminal.Operador.chavej}-${log}`)
+            //await client.downloadTo("README_COPY.md", "README_FTP.md")
+        }
+        catch(err) {
+            console.log(err)
+        }
+        client.close()
     }
 }
