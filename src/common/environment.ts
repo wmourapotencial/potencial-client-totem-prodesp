@@ -1,8 +1,9 @@
 export const environment = {
     socket: {
-        //url: 'http://localhost:9003'
+        url: 'http://localhost:9003'
         //url: 'https://desenv.poupatempo.potencialtecnologia.com.br'
-        url: 'https://homolog.poupatempo.potencialtecnologia.com.br'
+        //url: 'https://homolog.poupatempo.potencialtecnologia.com.br'
+        //url: 'http://177.184.29.139:9013'
     },
     impressora: {
         url: 'http://192.168.0.23:8080',

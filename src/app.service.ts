@@ -14,6 +14,7 @@ let wsClients=[];
 let old = []
 const { exec, spawn } = require('child_process');
 import PromiseSocket from "promise-socket"
+import { LogsService } from './logs/logs.service';
 
 @Injectable()
 export class AppService implements OnModuleInit {
@@ -22,6 +23,7 @@ export class AppService implements OnModuleInit {
     //private readonly websocketService: WebsocketService,
     private readonly utilsService: UtilsService,
     private readonly terminaisService: TerminaisService,
+    private readonly logsService: LogsService
 ) {}
 
   private readonly logger = new Logger(AppService.name);
@@ -71,6 +73,7 @@ export class AppService implements OnModuleInit {
 
       await promiseSocket.write(`LOGINDT`)
       const response = (await promiseSocket.readAll()) as Buffer
+      let t = {}
       if (response) {
         let terminal = JSON.parse(response.toString())
         //console.log(terminal)
@@ -101,46 +104,84 @@ export class AppService implements OnModuleInit {
           console.log(terminalMongo.error)
           this.logger.log('Terminal não encontrado fazendo vinculo com cliente socket')
           try{
-            await this.terminaisService.criarTerminal(data)
+            t = await this.terminaisService.criarTerminal(data)
+
+            await this.logsService.criarLog({
+              traNsu: '',
+              mensagem: 'Vinculando terminal',
+              data: JSON.stringify(t)
+            })
           }catch(error){
             console.log(error)
           }
           
         }else{
-          await this.terminaisService.atualizarTerminal(terminalMongo._id, data)
+          t = await this.terminaisService.atualizarTerminal(terminalMongo._id, data)
+          await this.logsService.criarLog({
+            traNsu: '',
+            mensagem: 'Atualizando vinculo terminal',
+            data: JSON.stringify(t)
+          })
         }
       }
+      this.logsService.criarLog({
+        traNsu: '',
+        mensagem: 'Cliente conectado',
+        data: JSON.stringify(t)
+      })
       await promiseSocket.end()
   }
 
   async websocket(){
     const wss = new WebSocket.Server({ port: 8181, path: '/client' })
-    wss.on('connection', ws => {
+    wss.on('connection', async ws => {
       console.log('new connection');
-      wsClients.push(ws);
+      await wsClients.push(ws);
 
-      ws.on('message', message => {
-        console.log(`Received message => ${message}`)
-
+      await ws.on('message', async message => {
+        let mess = {
+          traNsu: '',
+          message: ''
+        }
+        
         if(message == 'ABORT'){
-          console.log('mensagem abort recebida')
-            let client2 = new net.Socket();
-            client2.connect(5003, environment.socketPotencial.url, async function() {
-                client2.write(`_ABORT_`);
-                console.log('mensagem abort enviada para o jar')
-            })
+          mess.message = 'ABORT'
+        }
 
-            client2.on('data', async function(data) {
-                console.log('Received data abort: ' + data);
-            })
+        mess = JSON.parse(message)
 
-            client2.on('end', async function() {
-                console.log('Received end abort: ');
-                // client2.destroy()
-            })
+        if(mess.message == 'Insira ou passe ou aproxime o cartao na leitora'){
+          mess.message = 'INSIRA, PASSE OU APROXIME O CARTÃO NA LEITORA'
+        }
+
+        if(mess.message == 'AGUARDE A SENHA'){
+          mess.message = 'INSIRA A SENHA'
+        }
+
+        if(mess.message == 'Transacao Aprov.'){
+          mess.message = 'TRANSAÇÃO APROVADA'
+        }
+
+        await this.logsService.criarLog({
+          traNsu: mess.traNsu,
+          mensagem: mess.message,
+          data: ``
+        })
+
+        if(mess.message == 'ABORT'){
+          const clientAbort = new net.Socket();
+          const promiseSocket = new PromiseSocket(clientAbort)
+          await promiseSocket.connect({port: 5003, host: environment.socketPotencial.url})
+          await promiseSocket.write(`_ABORT_`)
+          const resp = (await promiseSocket.readAll()) as Buffer
+          if (resp) {
+            console.log(resp.toString())
+          }
         } else {
-          console.log(`broadcast: ${message}`)
-          this.broadcast(message)
+          console.log(`broadcast: ${mess.message}`)
+          if(mess.message != '' || typeof mess.message != 'undefined'){
+            this.broadcast(mess.message)
+          }
         }
       })
     });
@@ -276,6 +317,11 @@ export class AppService implements OnModuleInit {
     let statusImpressora = await impressora()
     do {
       statusImpressora = await impressora()
+      await this.logsService.criarLog({
+        traNsu: doc.IdPotencial,
+        mensagem: 'Verificação impressora',
+        data: JSON.stringify(statusImpressora)
+      })
     }while(!statusImpressora)
     
     let client = new net.Socket();
@@ -283,6 +329,12 @@ export class AppService implements OnModuleInit {
       console.log(`${("00000" + JSON.stringify(transacao).length).slice(-5)}01${JSON.stringify(transacao)}`)
       await client.write(`${("00000" + JSON.stringify(transacao).length).slice(-5)}01${JSON.stringify(transacao)}`);
     });
+
+    await this.logsService.criarLog({
+      traNsu: doc.IdPotencial,
+      mensagem: 'Mensagem enviada client para jar',
+      data: `${("00000" + JSON.stringify(transacao).length).slice(-5)}01${JSON.stringify(transacao)}`
+    })
 
     let message = ''
     let response
@@ -302,9 +354,11 @@ export class AppService implements OnModuleInit {
         if(response.hasOwnProperty('message')){
           const socket = await new WebSocket('ws://localhost:8181/client');
           socket.onopen = async function() {
-            // console.log(`mensagem: ${response.message}`)
-            // console.log(`mensagem 2: ${response.message.replace('"', '')}`)
-            await socket.send(response.message);
+            let mess = JSON.stringify({
+              traNsu: doc.traNsu,
+              message: response.message
+            })
+            await socket.send(mess);
             socket.onmessage = function(data) {
               console.log(data.data);
             };
@@ -312,9 +366,11 @@ export class AppService implements OnModuleInit {
         }if(response.hasOwnProperty('StatusMensagem')){
           const socket = await new WebSocket('ws://localhost:8181/client');
           socket.onopen = async function() {
-            // console.log(`mensagem: ${response.message}`)
-            // console.log(`mensagem 2: ${response.message.replace('"', '')}`)
-            await socket.send(response.StatusMensagem);
+            let mess = JSON.stringify({
+              traNsu: doc.traNsu,
+              message: response.StatusMensagem
+            })
+            await socket.send(mess);
             socket.onmessage = function(data) {
               console.log(data.data);
             };
@@ -394,7 +450,11 @@ export class AppService implements OnModuleInit {
                   //this.sendMessage('Sem conexão com a impressora. Por favor, verifique.')
                   const socket = await new WebSocket('ws://localhost:8181/client');
                   socket.onopen = async function() {
-                    await socket.send(`Sem conexão com a impressora. Por favor, verifique.`);
+                    let mess = JSON.stringify({
+                      traNsu: doc.traNsu,
+                      message: `Sem conexão com a impressora. Por favor, verifique.`
+                    })
+                    await socket.send(mess);
                     socket.onmessage = function(data) {
                       console.log(data.data);
                     };
@@ -420,39 +480,30 @@ export class AppService implements OnModuleInit {
                 //return impressao
                 if(impressao.data.postjsontoprint == 1){
                   viaImpressao += 1
-                  let clientConfirmacao = new net.Socket();
-                  await clientConfirmacao.connect(5002, environment.socketPotencial.url, async function() {
-                    let dataLength = `{"IdProdesp":${response.IdProdesp},"IdPotencial":"${response.IdPotencial}","Status":0}`
-                    await clientConfirmacao.write(`${("00000" + dataLength.length).slice(-5)}02{"IdProdesp":${response.IdProdesp},"IdPotencial":"${response.IdPotencial}","Status":0}`);
-                    console.log(`${("00000" + dataLength.length).slice(-5)}02{"IdProdesp":${response.IdProdesp},"IdPotencial":"${response.IdPotencial}","Status":0}`)
-                  });
 
-                  await clientConfirmacao.on('data', async function(data) {
-                    console.log('data confirmação impressao')
-                    console.log(data.toString())
-                  })
-
-                  await clientConfirmacao.on('end', async function(data) {
-                    console.log('end confirmação impressao')
-                    await clientConfirmacao.destroy()
-                  })
-
-                  clientConfirmacao.on('close', async function() {
-                    console.log('close confirmação impressao')
-                  })
+                  const clientConfirmaImpressao = new net.Socket();
+                  const promiseSocket = new PromiseSocket(clientConfirmaImpressao)
+                  await promiseSocket.connect({port: 5002, host: environment.socketPotencial.url})
+                  let dataLength = `{"IdProdesp":${response.IdProdesp},"IdPotencial":"${response.IdPotencial}","Status":0}`
+                  await promiseSocket.write(`${("00000" + dataLength.length).slice(-5)}02{"IdProdesp":${response.IdProdesp},"IdPotencial":"${response.IdPotencial}","Status":0}`)
+                  const resp = (await promiseSocket.readAll()) as Buffer
+                  const socket = await new WebSocket('ws://localhost:8181/client');
+                  socket.onopen = async function() {
+                    await socket.send(JSON.stringify({
+                      traNsu: response.IdPotencial,
+                      message: `print-${resp.toString()}`
+                    }));
+                    socket.onmessage = function(data) {
+                      console.log(data.data);
+                    };
+                  };
+                  if (resp) {
+                    console.log(resp.toString())
+                  }
 
                   socketIo.emit('send-transacao-success', {
                     traNsu: response.IdPotencial
                   });
-
-                  // console.log('reconectou confirmação impressao')
-                  // socketIo = await io(environment.socket.url)
-                  // await socketIo.on("connect", async () => {
-                  //   this.logger.log('client connectado ao socket potencial')
-                  //   await socketIo.on('send-transacao', async (transacao) => {
-                  //     await this.connectSocket(transacao)
-                  //   })
-                  // })
 
                   return true
                 }else{
@@ -475,7 +526,11 @@ export class AppService implements OnModuleInit {
         }
         const socket = await new WebSocket('ws://localhost:8181/client');
         socket.onopen = async function() {
-          await socket.send(message.replace('"', '').substr(0, message.length -1));
+          let mess = JSON.stringify({
+            traNsu: doc.traNsu,
+            message: message.replace('"', '').substr(0, message.length -1)
+          })
+          await socket.send(mess);
           socket.onmessage = function(data) {
             console.log(data.data);
           };

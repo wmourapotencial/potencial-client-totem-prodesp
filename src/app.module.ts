@@ -10,6 +10,8 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { environment } from './common/environment';
 import { TerminaisService } from './terminais/terminais.service';
 import { TerminalSchema } from './terminais/interfaces/terminal.schema';
+import { LogsService } from './logs/logs.service';
+import { LogSchema } from './logs/interfaces/logs.schema';
 
 @Module({
   imports: [
@@ -20,9 +22,9 @@ import { TerminalSchema } from './terminais/interfaces/terminal.schema';
       useUnifiedTopology: true,
       useFindAndModify: false
     }),
-    MongooseModule.forFeature([{name: 'Terminal', schema: TerminalSchema}])
+    MongooseModule.forFeature([{name: 'Terminal', schema: TerminalSchema},{name: 'Log', schema: LogSchema}])
   ],
   controllers: [AppController, UtilsController],
-  providers: [AppService, UtilsService, TerminaisService],
+  providers: [AppService, UtilsService, TerminaisService, LogsService],
 })
 export class AppModule {}
