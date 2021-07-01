@@ -136,13 +136,13 @@ export class UtilsService {
         client.ftp.verbose = true
         try {
             await client.access({
-                host: "200.219.222.116",
-                user: "potencialbh",
-                password: "In12pot@1609",
+                host: environment.ftp.host,
+                user: environment.ftp.user,
+                password: environment.ftp.password,
                 secure: false
             })
             //console.log(await client.list())
-            await client.uploadFrom(`/Users/xitaomoura/Projetos/poupatempo_totem_prodesp/potencial-client-totem-prodesp/${log}`, `totem-prodesp/${terminal.Operador.chavej}-${log}`)
+            await client.uploadFrom(`${environment.ftp.directory}${log}`, `totem-prodesp/${terminal.Operador.chavej}-${log}`)
             //await client.downloadTo("README_COPY.md", "README_FTP.md")
         }
         catch(err) {
