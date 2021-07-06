@@ -5,6 +5,7 @@ const WebSocket = require('ws')
 import * as net from 'net'
 import PromiseSocket from "promise-socket"
 import * as ftp from 'basic-ftp'
+const { exec, spawn } = require('child_process');
 
 @Injectable()
 export class UtilsService {
@@ -149,5 +150,57 @@ export class UtilsService {
             console.log(err)
         }
         client.close()
+    }
+
+    async updateJar(){
+        const client = new ftp.Client()
+        client.ftp.verbose = true
+        try {
+            await client.access({
+                host: environment.ftp.host,
+                user: environment.ftp.user,
+                password: environment.ftp.password,
+                secure: false
+            })
+            //console.log(await client.list())
+            //await client.uploadFrom(`${environment.ftp.directory}${log}`, `totem-prodesp/${terminal.Operador.chavej}-${log}`)
+            await client.downloadTo(`PGTO_POTENCIAL_1.jar`, "totem-prodesp/potencial-pagamentos/PGTO_POTENCIAL_1.jar")
+        }
+        catch(err) {
+            console.log(err)
+        }
+        client.close()
+    }
+
+    async initJar(){
+        await exec('start "PGTO_PAGAMENTO" java -jar PGTO_POTENCIAL.jar', (err, stdout, stderr) => {
+            console.log(err)
+            console.log(stdout)
+            console.log(stderr)
+        })
+    }
+
+    async killJar(){
+        await exec('taskkill /F /FI "WINDOWTITLE eq PGTO_PAGAMENTO" /T', (err, stdout, stderr) => {
+            console.log(err)
+            console.log(stdout)
+            console.log(stderr)
+        })
+
+        setTimeout( async () => {
+            await exec(`rename PGTO_POTENCIAL.jar PGTO_POTENCIAL-${new Date().getTime()}.jar`, (err, stdout, stderr) => {
+                console.log(err)
+                console.log(stdout)
+                console.log(stderr)
+            })
+        }, 6000)
+
+        setTimeout( async () => {
+            await exec(`rename PGTO_POTENCIAL_1.jar PGTO_POTENCIAL.jar`, (err, stdout, stderr) => {
+                console.log(err)
+                console.log(stdout)
+                console.log(stderr)
+            })
+        }, 6000)
     }
 }

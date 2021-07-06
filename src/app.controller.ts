@@ -14,12 +14,20 @@ export class AppController {
     this.appService.websocket()
   }
 
-  @Get('removerpendencia/:IdProdesp/:IdPotencial/:Status')
-    async removerPendencia(
-        @Param('IdPotencial') IdPotencial: string,
-        @Param('IdProdesp') IdProdesp: string,
-        @Param('Status') Status: string
-        ){
-        await this.appService.confirmaImpressao(IdProdesp,IdPotencial,Status)
-    }
+  @Get('confirmaimpressao/:IdProdesp/:IdPotencial/:Status')
+  async confirmaImpressao(
+      @Param('IdPotencial') IdPotencial: string,
+      @Param('IdProdesp') IdProdesp: string,
+      @Param('Status') Status: string
+      ){
+      await this.appService.confirmaImpressao(IdProdesp,IdPotencial,Status)
+  }
+
+  @Get('removependencia/:IdProdesp/:IdPotencial')
+  async removerPendencia(
+      @Param('IdPotencial') IdPotencial: string,
+      @Param('IdProdesp') IdProdesp: string
+      ){
+      await this.appService.removePendencia(IdProdesp)
+  }
 }
