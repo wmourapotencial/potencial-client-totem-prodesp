@@ -31,28 +31,95 @@ export class AppService implements OnModuleInit {
 
   async onModuleInit() {
     this.logger.log(`Inicializado serviços...`);
-    //await this.utilsService.initJar()
+    await this.logger.log('Iniciando PGTO_POTECIAL...')
+    await this.utilsService.initJar()
+    // await this.logger.log('Iniciando ARIS...')
+    // await this.utilsService.initAris()
     setTimeout( async () => {
       await this.websocket()
+      await this.logger.log('Conectando no socket potencial')
       socketIo = await this.connectClient()
       //await console.log(socketIo)
       //fica ouvindo event send-transacao (o envio de uma transação por nosso socket potencial)
       await socketIo.on("connect", async () => {
         await this.atualizaSocketClient(socketIo.id)
-        await this.logger.log('client connectado ao socket potencial')
-        await this.logger.log(socketIo.id)
+        await this.logger.log(`client connectado ao socket potencial, client_id: ${socketIo.id}`)
         await socketIo.on('send-transacao', async (transacao) => {
+          await this.logger.log(`transação recebida: ${JSON.stringify(transacao)}`)
           await this.connectSocket(transacao)
         })
 
         await socketIo.on('get-log', async (log) => {
+          await this.logger.log('Enviando log ...')
           await this.utilsService.getLog(log)
         })
 
-        await socketIo.on('set-update', async (log) => {
-          await this.utilsService.updateJar()
-          await this.utilsService.killJar()
-          await this.utilsService.initJar()
+        let kill
+        await socketIo.on('set-update-jar', async () => {
+          await this.logger.warn('Iniciando atualização do sistema de pagamento...')
+          await this.logger.warn('Verificando versão PGTO_PAGAMENTO...')
+          await this.utilsService.versionJar()
+          await this.logger.warn('Fazendo download do PGTO_PAGAMENTO...')
+          await this.utilsService.downloadJar()
+          await this.logger.warn('Parando aplicação PGTO_PAGAMENTO...')
+          try{
+            kill = await this.utilsService.killJar()
+            if(kill.status != 0){
+              await this.logger.error(`Terminal em uso, não foi possivel atualizar.`)
+              const client = new net.Socket();
+              const promiseSocket = new PromiseSocket(client)
+              await promiseSocket.connect({port: 5003, host: environment.socketPotencial.url})
+  
+              await promiseSocket.write(`LOGINDT`)
+              const response = (await promiseSocket.readAll()) as Buffer
+              if (response) {
+                let terminal = JSON.parse(response.toString())
+                let terminalMongo = await this.terminaisService.consultarTerminalChaveJ(terminal.Operador.chavej)
+                socketIo.emit('send-transacao-status', {
+                  terminal: terminalMongo
+                });
+              }
+              await this.utilsService.deleteJar()
+            }
+          }catch(error){
+            await this.logger.warn('Atualizando PGTO_PAGAMENTO...')
+            await this.utilsService.updateJar()
+            setTimeout( async () => {
+              await this.logger.warn('Iniciando PGTO_PAGAMENTO atualizado...')
+              await this.utilsService.initJar()
+            }, 10000)
+          }
+        })
+
+        await socketIo.on('set-update-node', async () => {
+          await this.logger.warn('Iniciando atualização do sistema de pagamento...')
+          //await this.logger.warn('Verificando versão PGTO_PAGAMENTO...')
+          //await this.utilsService.versionJar()
+          await this.logger.warn('Fazendo download do Cliente Node...')
+          await this.utilsService.downloadNode()
+          try{
+            kill = await this.utilsService.killJar()
+            if(kill.status != 0){
+              await this.logger.error(`Terminal em uso, não foi possivel atualizar.`)
+              const client = new net.Socket();
+              const promiseSocket = new PromiseSocket(client)
+              await promiseSocket.connect({port: 5003, host: environment.socketPotencial.url})
+  
+              await promiseSocket.write(`LOGINDT`)
+              const response = (await promiseSocket.readAll()) as Buffer
+              if (response) {
+                let terminal = JSON.parse(response.toString())
+                let terminalMongo = await this.terminaisService.consultarTerminalChaveJ(terminal.Operador.chavej)
+                socketIo.emit('send-transacao-status', {
+                  terminal: terminalMongo
+                });
+              }
+              await this.utilsService.deleteNode()
+            }
+          }catch(error){
+            await this.logger.warn('Atualizando Client Node...')
+            await this.utilsService.updateNode()
+          }
         })
       })
 
@@ -63,14 +130,11 @@ export class AppService implements OnModuleInit {
       }while(!statusEquipamentos)
     },15000)
     
-  
-    
-
     //reconecta cliente socket potencial a cada 5 minutos
     setInterval( async () => {
       //fica ouvindo event send-transacao (o envio de uma transação por nosso socket potencial)
       await socketIo.on("connect", async () => {
-        this.logger.log('client connectado ao socket potencial')
+        await this.logger.log(`client connectado ao socket potencial, client_id: ${socketIo.id}`)
         await this.atualizaSocketClient(socketIo.id)
         await socketIo.on('send-transacao', async (transacao) => {
           await this.connectSocket(transacao)
@@ -93,9 +157,6 @@ export class AppService implements OnModuleInit {
       let t = {}
       if (response) {
         let terminal = JSON.parse(response.toString())
-        //console.log(terminal)
-        //terminal.Operador.chavej = 'J9645500'
-        //terminal.Operador.indice = 1536
         let terminalMongo = await this.terminaisService.consultarTerminalChaveJ(terminal.Operador.chavej)
         let statusPrint = await this.utilsService.getStatusImpressora()
         let statusPinpad = await this.utilsService.getStatusPinpad()

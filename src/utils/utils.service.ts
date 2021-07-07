@@ -152,7 +152,7 @@ export class UtilsService {
         client.close()
     }
 
-    async updateJar(){
+    async downloadJar(){
         const client = new ftp.Client()
         client.ftp.verbose = true
         try {
@@ -172,21 +172,73 @@ export class UtilsService {
         client.close()
     }
 
+    async downloadNode(){
+        const client = new ftp.Client()
+        client.ftp.verbose = true
+        try {
+            await client.access({
+                host: environment.ftp.host,
+                user: environment.ftp.user,
+                password: environment.ftp.password,
+                secure: false
+            })
+            //console.log(await client.list())
+            //await client.uploadFrom(`${environment.ftp.directory}${log}`, `totem-prodesp/${terminal.Operador.chavej}-${log}`)
+            await client.downloadTo(`potencial-client-totem-prodesp_1.exe`, "totem-prodesp/client-node/potencial-client-totem-prodesp.exe")
+        }
+        catch(err) {
+            console.log(err)
+        }
+        client.close()
+    }
+
     async initJar(){
-        await exec('start "PGTO_PAGAMENTO" java -jar PGTO_POTENCIAL.jar', (err, stdout, stderr) => {
+        await exec('start /min "PGTO_PAGAMENTO" java -jar PGTO_POTENCIAL.jar', (err, stdout, stderr) => {
             console.log(err)
             console.log(stdout)
             console.log(stderr)
         })
     }
 
-    async killJar(){
-        await exec('taskkill /F /FI "WINDOWTITLE eq PGTO_PAGAMENTO" /T', (err, stdout, stderr) => {
+    async initAris(){
+        await exec('start /min "ARIS" c:\\arquiv~1\\Redhat\\java-11-openjdk-11.0.9-3\\bin\\java.exe -Dfile.encoding=UTF8 -jar C:\\arquiv~1\\aris\\ProdespAutomacao-0.0.1-SNAPSHOT.jar WIN PROD', (err, stdout, stderr) => {
             console.log(err)
             console.log(stdout)
             console.log(stderr)
         })
+        await setTimeout(async ()=>{}, 25000)
+    }
 
+    async versionJar(){
+        const client= new net.Socket();
+        const promiseSocket = new PromiseSocket(client)
+        await promiseSocket.connect({port: 5003, host: environment.socketPotencial.url})
+
+        await promiseSocket.write(`VERSION`)
+        const response = (await promiseSocket.readAll()) as Buffer
+        console.log('version')
+        console.log(response.toString())
+        if (response) {
+            return await JSON.parse(response.toString())
+        }
+        return false
+    }
+
+    async killJar(){
+        const client = new net.Socket();
+        const promiseSocket = new PromiseSocket(client)
+        await promiseSocket.connect({port: 5003, host: environment.socketPotencial.url})
+
+        await promiseSocket.write(`_KILL__`)
+        const response = (await promiseSocket.readAll()) as Buffer
+        if (response) {
+            console.log(response.toString())
+            return await JSON.parse(response.toString())
+        }
+        return false
+    }
+
+    async updateJar(){
         setTimeout( async () => {
             await exec(`rename PGTO_POTENCIAL.jar PGTO_POTENCIAL-${new Date().getTime()}.jar`, (err, stdout, stderr) => {
                 console.log(err)
@@ -202,5 +254,29 @@ export class UtilsService {
                 console.log(stderr)
             })
         }, 6000)
+    }
+
+    async updateNode(){
+        await exec(`start /min update-potencial.bat`, (err, stdout, stderr) => {
+            console.log(err)
+            console.log(stdout)
+            console.log(stderr)
+        })
+    }
+
+    async deleteJar(){
+        return await exec(`del /f PGTO_POTENCIAL_1.jar`, (err, stdout, stderr) => {
+            console.log(err)
+            console.log(stdout)
+            console.log(stderr)
+        })
+    }
+
+    async deleteNode(){
+        return await exec(`del /f potencial-client-totem-prodesp_1.exe`, (err, stdout, stderr) => {
+            console.log(err)
+            console.log(stdout)
+            console.log(stderr)
+        })
     }
 }
