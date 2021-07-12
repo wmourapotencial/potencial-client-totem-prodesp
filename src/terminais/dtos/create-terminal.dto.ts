@@ -8,13 +8,16 @@ export class CreateTerminalDto {
     printStatus: string
     pinpadStatus: string
     canal_pagamento: number
-    status: number
+    status: string
     client_id: string
     chavej: string
     terminal: string
     agencia: string
     loja: string
     convenio: string
+    jar_version: string
+    node_version: string
+    atualizador: number
     createdAt: Date
     updatedAt: Date
 }

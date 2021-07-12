@@ -8,11 +8,14 @@ export class UpdateTerminalDto {
     printStatus: string
     pinpadStatus: string
     canal_pagamento: number
-    status: number
+    status: string
     chavej: string
     terminal: string
     agencia: string
     loja: string
     convenio: string
+    jar_version: string
+    node_version: string
+    atualizador: number
     updatedAt: Date
 }

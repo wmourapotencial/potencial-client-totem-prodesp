@@ -32,7 +32,9 @@ export class AppService implements OnModuleInit {
   async onModuleInit() {
     this.logger.log(`Inicializado serviços...`);
     await this.logger.log('Iniciando PGTO_POTECIAL...')
-    await this.utilsService.initJar()
+
+    //await this.utilsService.initJar()
+    
     // await this.logger.log('Iniciando ARIS...')
     // await this.utilsService.initAris()
     setTimeout( async () => {
@@ -42,7 +44,12 @@ export class AppService implements OnModuleInit {
       //await console.log(socketIo)
       //fica ouvindo event send-transacao (o envio de uma transação por nosso socket potencial)
       await socketIo.on("connect", async () => {
-        await this.atualizaSocketClient(socketIo.id)
+        try{
+          await this.atualizaSocketClient(socketIo.id)
+        }catch(error){
+          this.logger.error(JSON.stringify(error))
+        }
+        
         await this.logger.log(`client connectado ao socket potencial, client_id: ${socketIo.id}`)
         await socketIo.on('send-transacao', async (transacao) => {
           await this.logger.log(`transação recebida: ${JSON.stringify(transacao)}`)
@@ -146,70 +153,70 @@ export class AppService implements OnModuleInit {
   async atualizaSocketClient(client){
 
     let totem = fs.readFileSync(environment.totemConfig.directory)
-    //console.log(JSON.parse(totem.toString()).estacao)
+    const client3 = new net.Socket();
+    const promiseSocket = new PromiseSocket(client3)
+    await promiseSocket.connect({port: 5003, host: environment.socketPotencial.url})
 
-      const client3 = new net.Socket();
-      const promiseSocket = new PromiseSocket(client3)
-      await promiseSocket.connect({port: 5003, host: environment.socketPotencial.url})
+    await promiseSocket.write(`LOGINDT`)
+    const response = (await promiseSocket.readAll()) as Buffer
+    let t = {}
+    if (response) {
+      let terminal = JSON.parse(response.toString())
+      let terminalMongo = await this.terminaisService.consultarTerminalChaveJ(terminal.Operador.chavej)
+      let statusPrint = await this.utilsService.getStatusImpressora()
+      let statusPinpad = await this.utilsService.getStatusPinpad()
 
-      await promiseSocket.write(`LOGINDT`)
-      const response = (await promiseSocket.readAll()) as Buffer
-      let t = {}
-      if (response) {
-        let terminal = JSON.parse(response.toString())
-        let terminalMongo = await this.terminaisService.consultarTerminalChaveJ(terminal.Operador.chavej)
-        let statusPrint = await this.utilsService.getStatusImpressora()
-        let statusPinpad = await this.utilsService.getStatusPinpad()
+      let data = {
+        indice: terminal.Operador.indice,
+        nome: terminal.Operador.nome,
+        macaddress: address.mac(function(err, addr){ return addr }),
+        ip: address.ip(),
+        uptime: os.uptime(),
+        hostname: os.hostname(),
+        printStatus: statusPrint.getstatusprinter,
+        pinpadStatus: statusPinpad.getstatuspinpad,
+        status: terminal.status,
+        client_id: client,
+        chavej: terminal.Operador.chavej,
+        terminal: terminal.terminal,
+        agencia: terminal.agencia,
+        loja: terminal.loja,
+        convenio: terminal.convenio,
+        canal_pagamento: JSON.parse(totem.toString()).estacao,
+        node_version: await this.utilsService.versionNode(),
+        jar_version: await this.utilsService.versionJar()
+      }
+      
+      if(terminalMongo.hasOwnProperty('error')){
+        //console.log(terminalMongo.error)
+        this.logger.log('Terminal não encontrado fazendo vinculo com cliente socket')
+        try{
+          t = await this.terminaisService.criarTerminal(data)
 
-        let data = {
-          indice: terminal.Operador.indice,
-          nome: terminal.Operador.nome,
-          macaddress: address.mac(function(err, addr){ return addr }),
-          ip: address.ip(),
-          uptime: os.uptime(),
-          hostname: os.hostname(),
-          printStatus: statusPrint.getstatusprinter,
-          pinpadStatus: statusPinpad.getstatuspinpad,
-          status: terminal.status,
-          client_id: client,
-          chavej: terminal.Operador.chavej,
-          terminal: terminal.terminal,
-          agencia: terminal.agencia,
-          loja: terminal.loja,
-          convenio: terminal.convenio,
-          canal_pagamento: JSON.parse(totem.toString()).estacao
-        }
-        
-        if(terminalMongo.hasOwnProperty('error')){
-          //console.log(terminalMongo.error)
-          this.logger.log('Terminal não encontrado fazendo vinculo com cliente socket')
-          try{
-            t = await this.terminaisService.criarTerminal(data)
-
-            await this.logsService.criarLog({
-              traNsu: '',
-              mensagem: 'Vinculando terminal',
-              data: JSON.stringify(t)
-            })
-          }catch(error){
-            console.log(error)
-          }
-          
-        }else{
-          t = await this.terminaisService.atualizarTerminal(terminalMongo._id, data)
           await this.logsService.criarLog({
             traNsu: '',
-            mensagem: 'Atualizando vinculo terminal',
+            mensagem: 'Vinculando terminal',
             data: JSON.stringify(t)
           })
+        }catch(error){
+          console.log(error)
         }
+        
+      }else{
+        t = await this.terminaisService.atualizarTerminal(terminalMongo._id, data)
+        await this.logsService.criarLog({
+          traNsu: '',
+          mensagem: 'Atualizando vinculo terminal',
+          data: JSON.stringify(t)
+        })
       }
-      this.logsService.criarLog({
-        traNsu: '',
-        mensagem: 'Cliente conectado',
-        data: JSON.stringify(t)
-      })
-      await promiseSocket.end()
+    }
+    this.logsService.criarLog({
+      traNsu: '',
+      mensagem: 'Cliente conectado',
+      data: JSON.stringify(t)
+    })
+    await promiseSocket.end()
   }
 
   async websocket(){
@@ -528,22 +535,27 @@ export class AppService implements OnModuleInit {
             let i2 = 0
             let intervalo2 = 0
         
-            for(i2 = 0; i2<30;i2++){
+            // for(i2 = 0; i2<30;i2++){
         
-                let a = response.ComprovanteTEF.substr(intervalo2, 38).replace(/(\r\n|\n|\r)/gm, "")
-                console.log(a)
+            //     let a = response.ComprovanteTEF.substr(intervalo2, 38).replace(/(\r\n|\n|\r)/gm, "")
+            //     console.log(a)
         
-                let itemComprovanteTEF = {
-                    "cmds": ["centerenable"],
-                    "txt": response.ComprovanteTEF.substr(intervalo2, 38).replace(/(\r\n|\n|\r)/gm, "")
-                }
+            //     let itemComprovanteTEF = {
+            //         "cmds": ["centerenable"],
+            //         "txt": response.ComprovanteTEF.substr(intervalo2, 38).replace(/(\r\n|\n|\r)/gm, "")
+            //     }
         
-                json.push(itemComprovanteTEF)
-                i2 += 1
-                intervalo2 += 38
-            }
+            //     json.push(itemComprovanteTEF)
+            //     i2 += 1
+            //     intervalo2 += 38
+            // }
+
+            json.push({
+              "cmds": ["centerenable"],
+              "txt": response.ComprovanteTEF
+            })
         
-            json.push({"cmds":["totalcut"],"txt":""})
+            //json.push({"cmds":["totalcut"],"txt":""})
 
             /////////// VERIFICA SE IMPRESSORA ESTA ONLINE INICIO
             async function impressora(){
@@ -599,16 +611,16 @@ export class AppService implements OnModuleInit {
                   let dataLength = `{"IdProdesp":${response.IdProdesp},"IdPotencial":"${response.IdPotencial}","Status":0}`
                   await promiseSocket.write(`${("00000" + dataLength.length).slice(-5)}02{"IdProdesp":${response.IdProdesp},"IdPotencial":"${response.IdPotencial}","Status":0}`)
                   const resp = (await promiseSocket.readAll()) as Buffer
-                  const socket = await new WebSocket('ws://localhost:8181/client');
-                  socket.onopen = async function() {
-                    await socket.send(JSON.stringify({
-                      traNsu: response.IdPotencial,
-                      message: `${resp.toString()}`
-                    }));
-                    socket.onmessage = function(data) {
-                      console.log(data.data);
-                    };
-                  };
+                  // const socket = await new WebSocket('ws://localhost:8181/client');
+                  // socket.onopen = async function() {
+                  //   await socket.send(JSON.stringify({
+                  //     traNsu: response.IdPotencial,
+                  //     message: `${JSON.parse(resp.toString()).mensagem}`
+                  //   }));
+                  //   socket.onmessage = function(data) {
+                  //     console.log(data.data);
+                  //   };
+                  // };
                   if (resp) {
                     console.log(resp.toString())
                   }

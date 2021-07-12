@@ -24,7 +24,7 @@ let env = {
 }
 
 /////HOMOLOGAÇÃO POTENCIAL
-process.env.NODE_ENV = 'production'
+process.env.NODE_ENV = 'homologacao-loc'
 
 if (process.env.NODE_ENV === 'production') {
     env = {
@@ -45,7 +45,7 @@ if (process.env.NODE_ENV === 'production') {
             host: '200.219.222.116',
             user: 'potencialbh',
             password: 'In12pot@1609',
-            directory: 'C:\\Program Files (x86)\\BBPotencial\\BB\log\\'
+            directory: 'C:\\Program Files (x86)\\BBPotencial\\BB\\log\\'
         },
         totemConfig: {
             directory: 'C:\\Totem\\Downloads\\Totem-Html\\assets\\config\\totem.config.json'

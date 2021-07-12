@@ -6,9 +6,20 @@ import * as net from 'net'
 import PromiseSocket from "promise-socket"
 import * as ftp from 'basic-ftp'
 const { exec, spawn } = require('child_process');
+import { getFileProperties, WmicDataObject } from 'get-file-properties'
+import * as fs from 'fs'
+import * as address from 'address'
+import * as os from 'os'
+import { TerminaisService } from 'src/terminais/terminais.service';
+import { LogsService } from 'src/logs/logs.service';
 
 @Injectable()
 export class UtilsService {
+
+    constructor(
+        private readonly terminaisService: TerminaisService,
+        private readonly logsService: LogsService
+    ) {}
 
     private readonly logger = new Logger(UtilsService.name);
 
@@ -219,9 +230,17 @@ export class UtilsService {
         console.log('version')
         console.log(response.toString())
         if (response) {
-            return await JSON.parse(response.toString())
+            console.log(JSON.parse(response.toString()))
+            console.log(JSON.parse(response.toString()).mensagem)
+            return await JSON.parse(response.toString()).mensagem.replace("Versao: ", "")
         }
         return false
+    }
+
+    async versionNode(){
+        const metadata: WmicDataObject = await getFileProperties('C:\\Program Files (x86)\\BBPotencial\\BB\\potencial-client-totem-prodesp.exe')
+        console.log(metadata.Version)
+        return metadata.Version
     }
 
     async killJar(){
@@ -257,7 +276,7 @@ export class UtilsService {
     }
 
     async updateNode(){
-        await exec(`start /min update-potencial.bat`, (err, stdout, stderr) => {
+        await exec(`start /min CMD /k update-potencial.bat`, (err, stdout, stderr) => {
             console.log(err)
             console.log(stdout)
             console.log(stderr)
@@ -279,4 +298,66 @@ export class UtilsService {
             console.log(stderr)
         })
     }
+
+    // async initServices(client){
+    //     let totem = fs.readFileSync(environment.totemConfig.directory)
+    //     const client3 = new net.Socket();
+    //     const promiseSocket = new PromiseSocket(client3)
+    //     await promiseSocket.connect({port: 5003, host: environment.socketPotencial.url})
+
+    //     await promiseSocket.write(`LOGINDT`)
+    //     const response = (await promiseSocket.readAll()) as Buffer
+    //     let t = {}
+    //     if (response) {
+    //     let terminal = JSON.parse(response.toString())
+    //     let terminalMongo = await this.terminaisService.consultarTerminalChaveJ(terminal.Operador.chavej)
+    //     let statusPrint = await this.getStatusImpressora()
+    //     let statusPinpad = await this.getStatusPinpad()
+
+    //     let data = {
+    //         indice: terminal.Operador.indice,
+    //         nome: terminal.Operador.nome,
+    //         macaddress: address.mac(function(err, addr){ return addr }),
+    //         ip: address.ip(),
+    //         uptime: os.uptime(),
+    //         hostname: os.hostname(),
+    //         printStatus: statusPrint.getstatusprinter,
+    //         pinpadStatus: statusPinpad.getstatuspinpad,
+    //         status: terminal.status,
+    //         client_id: client,
+    //         chavej: terminal.Operador.chavej,
+    //         terminal: terminal.terminal,
+    //         agencia: terminal.agencia,
+    //         loja: terminal.loja,
+    //         convenio: terminal.convenio,
+    //         canal_pagamento: JSON.parse(totem.toString()).estacao,
+    //         node_version: await this.versionNode(),
+    //         jar_version: await this.versionJar()
+    //     }
+        
+    //     if(terminalMongo.hasOwnProperty('error')){
+    //         //console.log(terminalMongo.error)
+    //         this.logger.log('Terminal não encontrado fazendo vinculo com cliente socket')
+    //         try{
+    //         t = await this.terminaisService.criarTerminal(data)
+
+    //         await this.logsService.criarLog({
+    //             traNsu: '',
+    //             mensagem: 'Vinculando terminal',
+    //             data: JSON.stringify(t)
+    //         })
+    //         }catch(error){
+    //         console.log(error)
+    //         }
+            
+    //     }else{
+    //         t = await this.terminaisService.atualizarTerminal(terminalMongo._id, data)
+    //         await this.logsService.criarLog({
+    //         traNsu: '',
+    //         mensagem: 'Atualizando vinculo terminal',
+    //         data: JSON.stringify(t)
+    //         })
+    //     }
+    //     }
+    // }
 }

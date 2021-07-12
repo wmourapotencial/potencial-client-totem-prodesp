@@ -67,6 +67,18 @@ export const TerminalSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    jar_version: {
+        type: String,
+        required: false
+    },
+    node_version: {
+        type: String,
+        required: false
+    },
+    atualizador: {
+        type: Number,
+        required: false
+    },
     createdAt: {
         type: Date, 
         default: Date.now
