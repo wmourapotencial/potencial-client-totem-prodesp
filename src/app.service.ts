@@ -14,7 +14,7 @@ let socketIo
 let wsClients=[];
 let old = []
 const { exec, spawn } = require('child_process');
-import PromiseSocket from "promise-socket"
+import {PromiseSocket, TimeoutError} from "promise-socket"
 import { LogsService } from './logs/logs.service';
 
 @Injectable()
@@ -33,7 +33,7 @@ export class AppService implements OnModuleInit {
     this.logger.log(`Inicializado serviços...`);
     await this.logger.log('Iniciando PGTO_POTECIAL...')
 
-    //await this.utilsService.initJar()
+    await this.utilsService.initJar()
     
     // await this.logger.log('Iniciando ARIS...')
     // await this.utilsService.initAris()
@@ -62,12 +62,15 @@ export class AppService implements OnModuleInit {
         })
 
         let kill
-        await socketIo.on('set-update-jar', async () => {
+        await socketIo.on('set-update-jar', async (atualizacao) => {
           await this.logger.warn('Iniciando atualização do sistema de pagamento...')
           await this.logger.warn('Verificando versão PGTO_PAGAMENTO...')
           await this.utilsService.versionJar()
           await this.logger.warn('Fazendo download do PGTO_PAGAMENTO...')
-          await this.utilsService.downloadJar()
+          let down = await this.utilsService.downloadJar(atualizacao)
+          if(down.status == 2){
+            return false
+          }
           await this.logger.warn('Parando aplicação PGTO_PAGAMENTO...')
           try{
             kill = await this.utilsService.killJar()
@@ -98,12 +101,16 @@ export class AppService implements OnModuleInit {
           }
         })
 
-        await socketIo.on('set-update-node', async () => {
+        await socketIo.on('set-update-node', async (atualizacao) => {
+
           await this.logger.warn('Iniciando atualização do sistema de pagamento...')
           //await this.logger.warn('Verificando versão PGTO_PAGAMENTO...')
           //await this.utilsService.versionJar()
           await this.logger.warn('Fazendo download do Cliente Node...')
-          await this.utilsService.downloadNode()
+          let down = await this.utilsService.downloadNode(atualizacao)
+          if(down.status == 2){
+            return false
+          }
           try{
             kill = await this.utilsService.killJar()
             if(kill.status != 0){
@@ -127,6 +134,10 @@ export class AppService implements OnModuleInit {
             await this.logger.warn('Atualizando Client Node...')
             await this.utilsService.updateNode()
           }
+        })
+
+        await socketIo.on('send-test-ping-jar', async () => {
+          await this.utilsService.getStatusPinpad()
         })
       })
 
@@ -183,8 +194,10 @@ export class AppService implements OnModuleInit {
         loja: terminal.loja,
         convenio: terminal.convenio,
         canal_pagamento: JSON.parse(totem.toString()).estacao,
-        node_version: await this.utilsService.versionNode(),
-        jar_version: await this.utilsService.versionJar()
+        node_version: '',
+        jar_version: ''
+        // node_version: await this.utilsService.versionNode(),
+        // jar_version: await this.utilsService.versionJar()
       }
       
       if(terminalMongo.hasOwnProperty('error')){
@@ -233,14 +246,19 @@ export class AppService implements OnModuleInit {
 
         console.log('message socket')
         console.log(message)
+
         
-        if(message == 'ABORT'){
+        
+        if (message == 'ABORT'){
           mess.message = 'ABORT'
           message = mess
         } else if (message == 'Sem conexão com a impressora. Por favor, verifique.') {
           mess.message = 'Sem conexão com a impressora. Por favor, verifique.'
           message = mess
-        }else {
+        } else if (message == 'Erro ao verificar a impressora.') {
+          mess.message = 'Erro ao verificar a impressora.'
+          message = mess
+        } else {
           mess = JSON.parse(message)
         }
 
@@ -412,6 +430,7 @@ export class AppService implements OnModuleInit {
               console.log(data.data);
             };
           };
+
           if(
             process.env.NODE_ENV == 'local-home' 
             || process.env.NODE_ENV == 'local-pot'
@@ -425,6 +444,18 @@ export class AppService implements OnModuleInit {
         return true
       } catch(error) {
           console.log(error)
+          const socket = await new WebSocket('ws://localhost:8181/client');
+          socket.onopen = async function() {
+            let mess = JSON.stringify({
+              traNsu: doc.traNsu,
+              message: 'Erro ao verificar a impressora.',
+              data: JSON.stringify(error)
+            })
+            await socket.send(mess);
+            socket.onmessage = function(data) {
+              console.log(data.data);
+            };
+          };
       }
     }
 
@@ -442,13 +473,26 @@ export class AppService implements OnModuleInit {
     await client.connect(5002, environment.socketPotencial.url, async function() {
       console.log(`${("00000" + JSON.stringify(transacao).length).slice(-5)}01${JSON.stringify(transacao)}`)
       await client.write(`${("00000" + JSON.stringify(transacao).length).slice(-5)}01${JSON.stringify(transacao)}`);
+    
+      const socket = await new WebSocket('ws://localhost:8181/client');
+      socket.onopen = async function() {
+        let mess = JSON.stringify({
+          traNsu: doc.traNsu,
+          message: 'Mensagem enviada ao jar',
+          data: `${("00000" + JSON.stringify(transacao).length).slice(-5)}01${JSON.stringify(transacao)}`
+        })
+        await socket.send(mess);
+        socket.onmessage = function(data) {
+          console.log(data.data);
+        };
+      };
     });
 
-    await this.logsService.criarLog({
-      traNsu: doc.IdPotencial,
-      mensagem: 'Mensagem enviada client para jar',
-      data: `${("00000" + JSON.stringify(transacao).length).slice(-5)}01${JSON.stringify(transacao)}`
-    })
+    // await this.logsService.criarLog({
+    //   traNsu: doc.IdPotencial,
+    //   mensagem: 'Mensagem enviada client para jar',
+    //   data: `${("00000" + JSON.stringify(transacao).length).slice(-5)}01${JSON.stringify(transacao)}`
+    // })
 
     let message = ''
     let response
@@ -470,7 +514,8 @@ export class AppService implements OnModuleInit {
           socket.onopen = async function() {
             let mess = JSON.stringify({
               traNsu: doc.traNsu,
-              message: response.message
+              message: response.message,
+              data: response
             })
             await socket.send(mess);
             socket.onmessage = function(data) {
@@ -482,7 +527,8 @@ export class AppService implements OnModuleInit {
           socket.onopen = async function() {
             let mess = JSON.stringify({
               traNsu: doc.traNsu,
-              message: response.StatusMensagem
+              message: response.StatusMensagem,
+              data: response
             })
             await socket.send(mess);
             socket.onmessage = function(data) {
@@ -659,7 +705,8 @@ export class AppService implements OnModuleInit {
         socket.onopen = async function() {
           let mess = JSON.stringify({
             traNsu: doc.traNsu,
-            message: message.replace('"', '').substr(0, message.length -1)
+            message: message.replace('"', '').substr(0, message.length -1),
+            data: response
           })
           await socket.send(mess);
           socket.onmessage = function(data) {
@@ -673,11 +720,26 @@ export class AppService implements OnModuleInit {
     await client.on('close', async function() {
       console.log('close')
     })
+
+    await client.on('error', async function() {
+      const socket = await new WebSocket('ws://localhost:8181/client');
+      socket.onopen = async function() {
+        let mess = JSON.stringify({
+          traNsu: doc.traNsu,
+          message: 'Erro na conexão do socket',
+          data: ''
+        })
+        await socket.send(mess);
+        socket.onmessage = function(data) {
+          console.log(data.data);
+        };
+      };
+
+      await this.removePendencia(doc)
+    })
   }
 
   async removePendencia(doc){
-
-    console.log('#################### remover pendência')
 
     let transacao = {}
     let tamanhoComprovante = 0
@@ -693,184 +755,251 @@ export class AppService implements OnModuleInit {
       tamanhoComprovante = 48
     }
 
-    const clientConfirmaImpressao = new net.Socket();
-    const promiseSocket = new PromiseSocket(clientConfirmaImpressao)
-    await promiseSocket.connect({port: 5002, host: environment.socketPotencial.url})
-    let dataLength = `{"IdPotencial":${doc.traNsu},"IdProdesp":"${doc.id}"}`
-    await promiseSocket.write(`${("00000" + dataLength.length).slice(-5)}03{"IdPotencial":${doc.traNsu},"IdProdesp":"${doc.id}"}`)
-    const resp = (await promiseSocket.readAll()) as Buffer
+    // const clientConfirmaImpressao = new net.Socket();
+    // const promiseSocket = new PromiseSocket(clientConfirmaImpressao)
+    // await promiseSocket.connect({port: 5002, host: environment.socketPotencial.url})
+    // let dataLength = `{"IdPotencial":${doc.traNsu},"IdProdesp":"${doc.id}"}`
+    // await promiseSocket.write(`${("00000" + dataLength.length).slice(-5)}03{"IdPotencial":${doc.traNsu},"IdProdesp":"${doc.id}"}`)
+    // const resp = (await promiseSocket.readAll()) as Buffer
     
-    console.log(resp.toString())
+    // console.log(resp.toString())
 
-    // let client = new net.Socket();
-    // await client.connect(5002, environment.socketPotencial.url, async function() {
-    //   let dataLength = `{"IdPotencial":${doc.traNsu},"IdProdesp":"${doc.id}"}`
-    //   await client.write(`${("00000" + dataLength.length).slice(-5)}03{"IdPotencial":${doc.traNsu},"IdProdesp":"${doc.id}"}`);
-    // });
+    let client = new net.Socket();
+    await client.connect(5002, environment.socketPotencial.url, async function() {
+      let dataLength = `{"IdPotencial":${doc.traNsu},"IdProdesp":"${doc.id}"}`
+      await client.write(`${("00000" + dataLength.length).slice(-5)}03{"IdPotencial":${doc.traNsu},"IdProdesp":"${doc.id}"}`);
+      
+      const socket = await new WebSocket('ws://localhost:8181/client');
+      socket.onopen = async function() {
+        let mess = JSON.stringify({
+          traNsu: doc.traNsu,
+          message: 'Enviando remoção de pendência',
+          data: ''
+        })
+        await socket.send(mess);
+        socket.onmessage = function(data) {
+          console.log(data.data);
+        };
+      };
+    });
 
-    // let message = ''
-    // let response
-    // let d = ''
-    // let continua = false
-    // let impressao
-    // let viaImpressao = 0
+    let message = ''
+    let response
+    let d = ''
+    let continua = false
+    let impressao
+    let viaImpressao = 0
 
-    // await client.on('data', async function(data) {
-    //   console.log('Received data: ' + data);
-    //   if(data.toString().trim().substr(-1,1) == '}'){
-    //     d = data.toString()
-    //     response = JSON.parse(d)
-    //     console.log(response)
-    //     continua = true
-    //   }else{
-    //     d += data.toString()
-    //   }
-    // })
+    await client.on('data', async function(data) {
+      console.log('Received data: ' + data);
+      if(data.toString().trim().substr(-1,1) == '}'){
+        d = data.toString()
+        response = JSON.parse(d)
+        console.log(response)
 
-    // await client.on('end', async function() {
-    //   console.log('Received end: ' + d);
-    //   if(continua){
+        /////////////ENVIA MENSAGEM/////////////////////
+        if(response.hasOwnProperty('message')){
+          const socket = await new WebSocket('ws://localhost:8181/client');
+          socket.onopen = async function() {
+            let mess = JSON.stringify({
+              traNsu: doc.traNsu,
+              message: response.message,
+              data: response
+            })
+            await socket.send(mess);
+            socket.onmessage = function(data) {
+              console.log(data.data);
+            };
+          };
+        }if(response.hasOwnProperty('StatusMensagem')){
+          const socket = await new WebSocket('ws://localhost:8181/client');
+          socket.onopen = async function() {
+            let mess = JSON.stringify({
+              traNsu: doc.traNsu,
+              message: response.StatusMensagem,
+              data: response
+            })
+            await socket.send(mess);
+            socket.onmessage = function(data) {
+              console.log(data.data);
+            };
+          };
+        }
+        /////////////ENVIA MENSAGEM/////////////////////
+        continua = true
+      }else{
+        d += data.toString()
+      }
+    })
 
-    //     response = JSON.parse(d)
-    //     if(response.hasOwnProperty('message')){
-    //       message = response.message.trim()
-    //       //console.log('Mensagem simples')
-    //     }else if(response.hasOwnProperty('DescricaoPendencia')){
-    //       message = response.DescricaoPendencia.trim()
-    //     }else{
-    //       if(response.Status != 0){
-    //         message = response.StatusMensagem.trim()
-    //       }else if(response.Status == 0){
-    //         //////// INICIA IMPRESSAO
-    //         let json = [
-    //             {"cmds": ["resetprinter", ""], "txt": ""}
-    //         ]
-    //         let i = 0
-    //         let intervalo = 0
-        
-    //         //COMPROVANTE BB
-    //         for(i = 0; i<response.ComprovanteBB.length/tamanhoComprovante+60;i++){
-        
-    //             let itemComprovanteBB = {
-    //                 "cmds": ["centerenable"],
-    //                 "txt": response.ComprovanteBB.substr(intervalo, tamanhoComprovante)
-    //             }
-        
-    //             json.push(itemComprovanteBB)
-    //             i += 1
-    //             intervalo += tamanhoComprovante
-    //         }
-        
-    //         //COMPROVANTE SITEF
-    //         json.push({"cmds": [], "txt": ""},{"cmds": [], "txt": ""},{"cmds": [], "txt": ""},{"cmds": [], "txt": ""})
-    //         let i2 = 0
-    //         let intervalo2 = 0
-        
-    //         for(i2 = 0; i2<30;i2++){
-        
-    //             let a = response.ComprovanteTEF.substr(intervalo2, 38).replace(/(\r\n|\n|\r)/gm, "")
-    //             console.log(a)
-        
-    //             let itemComprovanteTEF = {
-    //                 "cmds": ["centerenable"],
-    //                 "txt": response.ComprovanteTEF.substr(intervalo2, 38).replace(/(\r\n|\n|\r)/gm, "")
-    //             }
-        
-    //             json.push(itemComprovanteTEF)
-    //             i2 += 1
-    //             intervalo2 += 39
-    //         }
-        
-    //         json.push({"cmds":["totalcut"],"txt":""})
+    await client.on('end', async function() {
+      console.log('Received end: ' + d);
+      if(continua){
 
-    //         /////////// VERIFICA SE IMPRESSORA ESTA ONLINE INICIO
-    //         async function impressora(){
-    //           try {
-    //             let impressora = await axios.get(`${environment.impressora.url}/api/getstatusprinter`)
-    //             console.log(impressora.data.getstatusprinter)
-    //             //getstatusprinter
-    //             if(impressora.data.getstatusprinter != 1){
-    //               //this.sendMessage('Sem conexão com a impressora. Por favor, verifique.')
-    //               const socket = await new WebSocket('ws://localhost:8181/client');
-    //               socket.onopen = async function() {
-    //                 await socket.send('Sem conexão com a impressora. Por favor, verifique.');
-    //                 socket.onmessage = function(data) {
-    //                   console.log(data.data);
-    //                 };
-    //               };
-    //               return false
-    //             }
+        response = JSON.parse(d)
+        if(response.hasOwnProperty('message')){
+          message = response.message.trim().substr(0, message.length -1)
+        }else if(response.hasOwnProperty('DescricaoPendencia')){
+          message = response.DescricaoPendencia.trim().substr(0, message.length -1)
+        }else{
+          if(response.Status != 0){
+            message = response.StatusMensagem.trim().substr(0, message.length -1)
+          }else if(response.Status == 0){
+            //////// INICIA IMPRESSAO
+            let json = [
+                {"cmds": ["resetprinter", ""], "txt": ""}
+            ]
+            let i = 0
+            let intervalo = 0
+        
+            //COMPROVANTE BB
+            for(i = 0; i<response.ComprovanteBB.length/tamanhoComprovante+60;i++){
+        
+                let itemComprovanteBB = {
+                    "cmds": ["centerenable"],
+                    "txt": response.ComprovanteBB.substr(intervalo, tamanhoComprovante)
+                }
+        
+                json.push(itemComprovanteBB)
+                i += 1
+                intervalo += tamanhoComprovante
+            }
+        
+            //COMPROVANTE SITEF
+            json.push({"cmds": [], "txt": ""},{"cmds": [], "txt": ""},{"cmds": [], "txt": ""},{"cmds": [], "txt": ""})
+            let i2 = 0
+            let intervalo2 = 0
+
+            json.push({
+              "cmds": ["centerenable"],
+              "txt": response.ComprovanteTEF
+            })
+        
+            //json.push({"cmds":["totalcut"],"txt":""})
+
+            /////////// VERIFICA SE IMPRESSORA ESTA ONLINE INICIO
+            async function impressora(){
+              try {
+                let impressora = await axios.get(`${environment.impressora.url}/api/getstatususbprinter`)
+                console.log(impressora.data.getstatusprinter)
+                //getstatusprinter
+                if(impressora.data.printerfounded != 1 || impressora.data.printerhaspaper != 1 || impressora.data.printerisready != 1){
+                  //this.sendMessage('Sem conexão com a impressora. Por favor, verifique.')
+                  const socket = await new WebSocket('ws://localhost:8181/client');
+                  socket.onopen = async function() {
+                    let mess = JSON.stringify({
+                      traNsu: doc.traNsu,
+                      message: `Sem conexão com a impressora. Por favor, verifique.`
+                    })
+                    await socket.send(mess);
+                    socket.onmessage = function(data) {
+                      console.log(data.data);
+                    };
+                  };
+                  if(
+                    process.env.NODE_ENV == 'local-home' 
+                    || process.env.NODE_ENV == 'local-pot'
+                    || process.env.NODE_ENV == 'homologacao-pot'
+                    || process.env.NODE_ENV == 'production-pot'){
+                    return true
+                  }
+                  return false
+                }
             
-    //             return true
-    //           } catch(error) {
-    //               console.log(error)
-    //           }
-    //         }
+                return true
+              } catch(error) {
+                  console.log(error)
+              }
+            }
 
-    //         let statusImpressora = await impressora()
-    //         do {
-    //           statusImpressora = await impressora()
-    //         }while(!statusImpressora)
-    //         /////////// VERIFICA SE IMPRESSORA ESTA ONLINE FINAL
+            let statusImpressora = await impressora()
+            do {
+              statusImpressora = await impressora()
+            }while(!statusImpressora)
+            /////////// VERIFICA SE IMPRESSORA ESTA ONLINE FINAL
             
-    //         async function impressao(){
-    //           try {
-    //             let impressao = await axios.post(`${environment.impressora.url}/api/postjsontoprint`, json)
-    //             //return impressao
-    //             if(impressao.data.postjsontoprint == 1){
-    //               viaImpressao += 1
-    //               let clientConfirmacao = new net.Socket();
-    //               await clientConfirmacao.connect(5002, environment.socketPotencial.url, async function() {
-    //                 let dataLength = `{"IdProdesp":${response.IdProdesp},"IdPotencial":"${response.IdPotencial}","Status":0}`
-    //                 await clientConfirmacao.write(`${("00000" + dataLength.length).slice(-5)}02{"IdProdesp":${response.IdProdesp},"IdPotencial":"${response.IdPotencial}","Status":0}`);
-    //               });
+            async function impressao(){
+              try {
+                let impressao = await axios.post(`${environment.impressora.url}/api/postjsontoprint`, json)
+                //return impressao
+                if(impressao.data.postjsontoprint == 1){
+                  viaImpressao += 1
 
-    //               await clientConfirmacao.on('data', async function(data) {
-    //                 console.log('data')
-    //                 console.log(data)
-    //               })
+                  const clientConfirmaImpressao = new net.Socket();
+                  const promiseSocket = new PromiseSocket(clientConfirmaImpressao)
+                  await promiseSocket.connect({port: 5002, host: environment.socketPotencial.url})
+                  let dataLength = `{"IdProdesp":${response.IdProdesp},"IdPotencial":"${response.IdPotencial}","Status":0}`
+                  await promiseSocket.write(`${("00000" + dataLength.length).slice(-5)}02{"IdProdesp":${response.IdProdesp},"IdPotencial":"${response.IdPotencial}","Status":0}`)
+                  const resp = (await promiseSocket.readAll()) as Buffer
 
-    //               await clientConfirmacao.on('end', async function() {
-    //                 console.log('end')
-    //                 await clientConfirmacao.destroy()
-    //               })
+                  if (resp) {
+                    console.log(resp.toString())
+                  }
 
-    //               socket.on('close', async function() {
-    //                 console.log('close')
-    //               })
+                  socketIo.emit('send-transacao-success', {
+                    traNsu: response.IdPotencial
+                  });
 
-    //               socketIo.emit('send-transacao-success', {
-    //                 traNsu: response.IdPotencial
-    //               });
-    //               return true
-    //             }else{
-    //               return false
-    //             }
-    //           } catch(error){
-    //               console.log(error)
-    //               return false
-    //           }
-    //         }
+                  return true
+                }else{
+                  if(
+                    process.env.NODE_ENV == 'local-home' 
+                    || process.env.NODE_ENV == 'local-pot'
+                    || process.env.NODE_ENV == 'homologacao-pot'
+                    || process.env.NODE_ENV == 'production-pot'){
+                    return true
+                  }
+                  return false
+                }
+              } catch(error){
+                  console.log(error)
+                  return false
+              }
+            }
 
-    //         let statusImpressao = await impressao()
-    //         do {
-    //           if(viaImpressao == 0){
-    //             statusImpressao = await impressao()
-    //           }
-    //         }while(!statusImpressao && viaImpressao != 1)
-    //         /////// FINAL IMPRESSAO
-    //       }
-    //     }
-    //     const socket = await new WebSocket('ws://localhost:8181/client');
-    //     socket.onopen = async function() {
-    //       await socket.send(message);
-    //       socket.onmessage = function(data) {
-    //         console.log(data.data);
-    //       };
-    //     };
-    //   }
-    //   await client.destroy()
-    // })
+            let statusImpressao = await impressao()
+            do {
+              if(viaImpressao == 0){
+                statusImpressao = await impressao()
+              }
+            }while(!statusImpressao && viaImpressao != 1)
+            /////// FINAL IMPRESSAO
+          }
+        }
+        const socket = await new WebSocket('ws://localhost:8181/client');
+        socket.onopen = async function() {
+          let mess = JSON.stringify({
+            traNsu: doc.traNsu,
+            message: message.replace('"', '').substr(0, message.length -1),
+            data: response
+          })
+          await socket.send(mess);
+          socket.onmessage = function(data) {
+            console.log(data.data);
+          };
+        };
+      }
+      await client.destroy()
+    })
+
+    await client.on('close', async function() {
+      console.log('close')
+    })
+
+    await client.on('error', async function() {
+      const socket = await new WebSocket('ws://localhost:8181/client');
+      socket.onopen = async function() {
+        let mess = JSON.stringify({
+          traNsu: doc.traNsu,
+          message: 'Erro na conexão do socket remoção de pendência',
+          data: ''
+        })
+        await socket.send(mess);
+        socket.onmessage = function(data) {
+          console.log(data.data);
+        };
+      };
+    })
   }
 
   async sendMessage(data){

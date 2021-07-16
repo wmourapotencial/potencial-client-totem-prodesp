@@ -163,7 +163,7 @@ export class UtilsService {
         client.close()
     }
 
-    async downloadJar(){
+    async downloadJar(atualizacao){
         const client = new ftp.Client()
         client.ftp.verbose = true
         try {
@@ -175,15 +175,26 @@ export class UtilsService {
             })
             //console.log(await client.list())
             //await client.uploadFrom(`${environment.ftp.directory}${log}`, `totem-prodesp/${terminal.Operador.chavej}-${log}`)
-            await client.downloadTo(`PGTO_POTENCIAL_1.jar`, "totem-prodesp/potencial-pagamentos/PGTO_POTENCIAL_1.jar")
+            await client.downloadTo(`PGTO_POTENCIAL_1.jar`, `totem-prodesp/potencial-pagamentos/PGTO_POTENCIAL_${atualizacao.version}.jar`)
+            return await {
+                status: 1,
+                error: ''
+            }
         }
         catch(err) {
             console.log(err)
+            if(err){
+                return await {
+                    status: 2,
+                    error: err
+                }
+            }
         }
         client.close()
     }
 
-    async downloadNode(){
+    async downloadNode(atualizacao){
+        console.log(atualizacao)
         const client = new ftp.Client()
         client.ftp.verbose = true
         try {
@@ -195,10 +206,20 @@ export class UtilsService {
             })
             //console.log(await client.list())
             //await client.uploadFrom(`${environment.ftp.directory}${log}`, `totem-prodesp/${terminal.Operador.chavej}-${log}`)
-            await client.downloadTo(`potencial-client-totem-prodesp_1.exe`, "totem-prodesp/client-node/potencial-client-totem-prodesp.exe")
+            await client.downloadTo(`potencial-client-totem-prodesp_1.exe`, `totem-prodesp/client-node/potencial-client-totem-prodesp-${atualizacao.version}.exe`)
+            return await {
+                status: 1,
+                error: ''
+            }
         }
         catch(err) {
             console.log(err)
+            if(err){
+                return await {
+                    status: 2,
+                    error: err
+                }
+            }
         }
         client.close()
     }
@@ -238,7 +259,7 @@ export class UtilsService {
     }
 
     async versionNode(){
-        const metadata: WmicDataObject = await getFileProperties('C:\\Program Files (x86)\\BBPotencial\\BB\\potencial-client-totem-prodesp.exe')
+        const metadata: WmicDataObject = await getFileProperties(`${environment.locationData.node}potencial-client-totem-prodesp.exe`)
         console.log(metadata.Version)
         return metadata.Version
     }
@@ -298,66 +319,4 @@ export class UtilsService {
             console.log(stderr)
         })
     }
-
-    // async initServices(client){
-    //     let totem = fs.readFileSync(environment.totemConfig.directory)
-    //     const client3 = new net.Socket();
-    //     const promiseSocket = new PromiseSocket(client3)
-    //     await promiseSocket.connect({port: 5003, host: environment.socketPotencial.url})
-
-    //     await promiseSocket.write(`LOGINDT`)
-    //     const response = (await promiseSocket.readAll()) as Buffer
-    //     let t = {}
-    //     if (response) {
-    //     let terminal = JSON.parse(response.toString())
-    //     let terminalMongo = await this.terminaisService.consultarTerminalChaveJ(terminal.Operador.chavej)
-    //     let statusPrint = await this.getStatusImpressora()
-    //     let statusPinpad = await this.getStatusPinpad()
-
-    //     let data = {
-    //         indice: terminal.Operador.indice,
-    //         nome: terminal.Operador.nome,
-    //         macaddress: address.mac(function(err, addr){ return addr }),
-    //         ip: address.ip(),
-    //         uptime: os.uptime(),
-    //         hostname: os.hostname(),
-    //         printStatus: statusPrint.getstatusprinter,
-    //         pinpadStatus: statusPinpad.getstatuspinpad,
-    //         status: terminal.status,
-    //         client_id: client,
-    //         chavej: terminal.Operador.chavej,
-    //         terminal: terminal.terminal,
-    //         agencia: terminal.agencia,
-    //         loja: terminal.loja,
-    //         convenio: terminal.convenio,
-    //         canal_pagamento: JSON.parse(totem.toString()).estacao,
-    //         node_version: await this.versionNode(),
-    //         jar_version: await this.versionJar()
-    //     }
-        
-    //     if(terminalMongo.hasOwnProperty('error')){
-    //         //console.log(terminalMongo.error)
-    //         this.logger.log('Terminal não encontrado fazendo vinculo com cliente socket')
-    //         try{
-    //         t = await this.terminaisService.criarTerminal(data)
-
-    //         await this.logsService.criarLog({
-    //             traNsu: '',
-    //             mensagem: 'Vinculando terminal',
-    //             data: JSON.stringify(t)
-    //         })
-    //         }catch(error){
-    //         console.log(error)
-    //         }
-            
-    //     }else{
-    //         t = await this.terminaisService.atualizarTerminal(terminalMongo._id, data)
-    //         await this.logsService.criarLog({
-    //         traNsu: '',
-    //         mensagem: 'Atualizando vinculo terminal',
-    //         data: JSON.stringify(t)
-    //         })
-    //     }
-    //     }
-    // }
 }

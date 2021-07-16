@@ -20,11 +20,15 @@ let env = {
     },
     totemConfig: {
         directory: ''
+    },
+    locationData: {
+        jar: '',
+        node: ''
     }
 }
 
 /////HOMOLOGAÇÃO POTENCIAL
-process.env.NODE_ENV = 'homologacao-loc'
+process.env.NODE_ENV = 'local-home'
 
 if (process.env.NODE_ENV === 'production') {
     env = {
@@ -49,6 +53,10 @@ if (process.env.NODE_ENV === 'production') {
         },
         totemConfig: {
             directory: 'C:\\Totem\\Downloads\\Totem-Html\\assets\\config\\totem.config.json'
+        },
+        locationData: {
+            jar: '',
+            node: ''
         }
     }
 } else if (process.env.NODE_ENV === 'production-pot') {
@@ -70,10 +78,14 @@ if (process.env.NODE_ENV === 'production') {
             host: '200.219.222.116',
             user: 'potencialbh',
             password: 'In12pot@1609',
-            directory: 'C:\\Program Files (x86)\\BBPotencial\\BB\log\\'
+            directory: 'C:\\Program Files (x86)\\BBPotencial\\BB\\log\\'
         },
         totemConfig: {
             directory: 'C:\\Totem\\Downloads\\Totem-Html\\assets\\config\\totem.config.json'
+        },
+        locationData: {
+            jar: '',
+            node: ''
         }
     }
 } else if (process.env.NODE_ENV === 'homologacao-prod') {
@@ -95,10 +107,14 @@ if (process.env.NODE_ENV === 'production') {
             host: '200.219.222.116',
             user: 'potencialbh',
             password: 'In12pot@1609',
-            directory: 'C:\\Program Files (x86)\\BBPotencial\\BB\log\\'
+            directory: 'C:\\Program Files (x86)\\BBPotencial\\BB\\log\\'
         },
         totemConfig: {
             directory: 'C:\\Totem\\Downloads\\Totem-Html\\assets\\config\\totem.config.json'
+        },
+        locationData: {
+            jar: '',
+            node: ''
         }
     }
 } else if (process.env.NODE_ENV === 'homologacao-loc') {
@@ -124,6 +140,10 @@ if (process.env.NODE_ENV === 'production') {
         },
         totemConfig: {
             directory: '/Users/xitaomoura/Projetos/poupatempo_totem_prodesp/potencial-client-totem-prodesp/totem.config.json'
+        },
+        locationData: {
+            jar: '',
+            node: ''
         }
     }
 } else if (process.env.NODE_ENV === 'homologacao-pot') {
@@ -145,10 +165,14 @@ if (process.env.NODE_ENV === 'production') {
             host: '200.219.222.116',
             user: 'potencialbh',
             password: 'In12pot@1609',
-            directory: 'C:\\Program Files (x86)\\BBPotencial\\BB\log\\'
+            directory: 'C:\\Program Files (x86)\\BBPotencial\\BB\\log\\'
         },
         totemConfig: {
             directory: 'C:\\Totem\\Downloads\\Totem-Html\\assets\\config\\totem.config.json'
+        },
+        locationData: {
+            jar: '',
+            node: ''
         }
     }
 } else if (process.env.NODE_ENV === 'local-pot') {
@@ -174,12 +198,16 @@ if (process.env.NODE_ENV === 'production') {
         },
         totemConfig: {
             directory: '/Users/xitaomoura/Projetos/poupatempo_totem_prodesp/potencial-client-totem-prodesp/totem.config.json'
+        },
+        locationData: {
+            jar: '',
+            node: ''
         }
     }
 } else if (process.env.NODE_ENV === 'local-home') {
     env = {
         socket: {
-            url: 'http://localhost:9003'
+            url: 'http://192.168.0.13:9010'
         },
         impressora: {
             url: 'http://192.168.0.23:8080'
@@ -195,10 +223,14 @@ if (process.env.NODE_ENV === 'production') {
             host: '200.219.222.116',
             user: 'potencialbh',
             password: 'In12pot@1609',
-            directory: '/Users/xitaomoura/Projetos/poupatempo_totem_prodesp/potencial-client-totem-prodesp/'
+            directory: 'C:\\Program Files (x86)\\BBPotencial\\BB\\log\\'
         },
         totemConfig: {
-            directory: '/Users/xitaomoura/Projetos/poupatempo_totem_prodesp/potencial-client-totem-prodesp/totem.config.json'
+            directory: 'C:\\Totem\\Downloads\\Totem-Html\\assets\\config\\totem.config.json'
+        },
+        locationData: {
+            jar: 'C:\\Program Files (x86)\\BBPotencial\\BB\\',
+            node: 'C:\\Program Files (x86)\\BBPotencial\\BB\\'
         }
     }
 } else if (process.env.NODE_ENV === 'homologacao-preprod') {
@@ -224,6 +256,10 @@ if (process.env.NODE_ENV === 'production') {
         },
         totemConfig: {
             directory: 'C:\\Totem\\Downloads\\Totem-Html\\assets\\config\\totem.config.json'
+        },
+        locationData: {
+            jar: '',
+            node: ''
         }
     }
 }
