@@ -33,7 +33,7 @@ export class AppService implements OnModuleInit {
     this.logger.log(`Inicializado serviços...`);
     await this.logger.log('Iniciando PGTO_POTECIAL...')
 
-    await this.utilsService.initJar()
+    //await this.utilsService.initJar()
     
     // await this.logger.log('Iniciando ARIS...')
     // await this.utilsService.initAris()
@@ -136,8 +136,16 @@ export class AppService implements OnModuleInit {
           }
         })
 
-        await socketIo.on('send-test-ping-jar', async () => {
+        await socketIo.on('send-test-print', async () => {
+          await this.utilsService.getStatusImpressora()
+        })
+
+        await socketIo.on('send-test-pinpad', async () => {
           await this.utilsService.getStatusPinpad()
+        })
+
+        await socketIo.on('send-transacao-response', async (response) => {
+          console.log(`response: ${response}`)
         })
       })
 
@@ -247,8 +255,6 @@ export class AppService implements OnModuleInit {
         console.log('message socket')
         console.log(message)
 
-        
-        
         if (message == 'ABORT'){
           mess.message = 'ABORT'
           message = mess
@@ -363,14 +369,12 @@ export class AppService implements OnModuleInit {
   }
 
   async connectSocket(doc){
-
-    //sempre verifica pendência antes de iniciar uma nova transação
-    //await this.removePendencia(doc)
-
     doc = JSON.parse(doc)
-    console.log(doc)
-    let valor = doc.valorNominal.toString().split('.')
-    let total = doc.valorNominal.toString().replace('.', '')
+    //sempre verifica pendência antes de iniciar uma nova transação
+    await this.removePendencia(doc)
+
+    let valor = doc.transacao.valorNominal.toString().split('.')
+    let total = doc.transacao.valorNominal.toString().replace('.', '')
 
     if(valor.length == 1){
       valor[1] = '00'
@@ -389,29 +393,29 @@ export class AppService implements OnModuleInit {
     let transacao = {}
     let tamanhoComprovante = 0
 
-    if(doc.codigoServico == 1){
+    if(doc.transacao.codigoServico == 1){
       tamanhoComprovante = 38
       transacao = {
-        IdPotencial: doc.traNsu,
-        IdProdesp: doc.id,
-        CodigoBarras: doc.codigoBarrasDigitavel,
-        CodigoOperacao: doc.codigoServico,
+        IdPotencial: doc.transacao.traNsu,
+        IdProdesp: doc.transacao.id,
+        CodigoBarras: doc.transacao.codigoBarrasDigitavel,
+        CodigoOperacao: doc.transacao.codigoServico,
         InformacoesAdicionais: {
           Valor: total
         }
       }
     }else if(
-      doc.codigoServico == 2 || 
-      doc.codigoServico == 3 || 
-      doc.codigoServico == 4 || 
-      doc.codigoServico == 5
+      doc.transacao.codigoServico == 2 || 
+      doc.transacao.codigoServico == 3 || 
+      doc.transacao.codigoServico == 4 || 
+      doc.transacao.codigoServico == 5
       ){
       tamanhoComprovante = 48
       transacao = {
-        IdPotencial: doc.traNsu,
-        IdProdesp: doc.id,
-        CodigoOperacao: doc.codigoServico,
-        Documento: doc.codigoBarrasDigitavel
+        IdPotencial: doc.transacao.traNsu,
+        IdProdesp: doc.transacao.id,
+        CodigoOperacao: doc.transacao.codigoServico,
+        Documento: doc.transacao.codigoBarrasDigitavel
       }
     }
 
@@ -431,6 +435,11 @@ export class AppService implements OnModuleInit {
             };
           };
 
+          //management
+          if(doc.transacao.id == 9999999999){
+            socketIo.emit('send-transacao-response', {data: doc, message: 'Sem conexão com a impressora. Por favor, verifique.'});
+          }
+
           if(
             process.env.NODE_ENV == 'local-home' 
             || process.env.NODE_ENV == 'local-pot'
@@ -447,7 +456,7 @@ export class AppService implements OnModuleInit {
           const socket = await new WebSocket('ws://localhost:8181/client');
           socket.onopen = async function() {
             let mess = JSON.stringify({
-              traNsu: doc.traNsu,
+              traNsu: doc.transacao.traNsu,
               message: 'Erro ao verificar a impressora.',
               data: JSON.stringify(error)
             })
@@ -456,6 +465,11 @@ export class AppService implements OnModuleInit {
               console.log(data.data);
             };
           };
+
+          //management
+          if(doc.transacao.id == 9999999999){
+            socketIo.emit('send-transacao-response', {data: doc, message: 'Erro ao verificar a impressora.'});
+          }
       }
     }
 
@@ -463,7 +477,7 @@ export class AppService implements OnModuleInit {
     do {
       statusImpressora = await impressora()
       await this.logsService.criarLog({
-        traNsu: doc.IdPotencial,
+        traNsu: doc.transacao.traNsu,
         mensagem: 'Verificação impressora',
         data: JSON.stringify(statusImpressora)
       })
@@ -477,7 +491,7 @@ export class AppService implements OnModuleInit {
       const socket = await new WebSocket('ws://localhost:8181/client');
       socket.onopen = async function() {
         let mess = JSON.stringify({
-          traNsu: doc.traNsu,
+          traNsu: doc.transacao.traNsu,
           message: 'Mensagem enviada ao jar',
           data: `${("00000" + JSON.stringify(transacao).length).slice(-5)}01${JSON.stringify(transacao)}`
         })
@@ -486,13 +500,14 @@ export class AppService implements OnModuleInit {
           console.log(data.data);
         };
       };
-    });
 
-    // await this.logsService.criarLog({
-    //   traNsu: doc.IdPotencial,
-    //   mensagem: 'Mensagem enviada client para jar',
-    //   data: `${("00000" + JSON.stringify(transacao).length).slice(-5)}01${JSON.stringify(transacao)}`
-    // })
+      //management
+      if(doc.transacao.id == 9999999999){
+        console.log('mandou')
+        socketIo.emit('send-transacao-response', {data: doc, message: 'Mensagem enviada ao jar'});
+      }
+
+    });
 
     let message = ''
     let response
@@ -513,26 +528,38 @@ export class AppService implements OnModuleInit {
           const socket = await new WebSocket('ws://localhost:8181/client');
           socket.onopen = async function() {
             let mess = JSON.stringify({
-              traNsu: doc.traNsu,
+              traNsu: doc.transacao.traNsu,
               message: response.message,
               data: response
             })
             await socket.send(mess);
             socket.onmessage = function(data) {
               console.log(data.data);
+
+              //management
+              if(doc.transacao.id == 9999999999){
+                socketIo.emit('send-transacao-response', {data: doc, message: data.data});
+              }
             };
           };
+
+          
         }if(response.hasOwnProperty('StatusMensagem')){
           const socket = await new WebSocket('ws://localhost:8181/client');
           socket.onopen = async function() {
             let mess = JSON.stringify({
-              traNsu: doc.traNsu,
+              traNsu: doc.transacao.traNsu,
               message: response.StatusMensagem,
               data: response
             })
             await socket.send(mess);
             socket.onmessage = function(data) {
               console.log(data.data);
+
+              //management
+              if(doc.transacao.id == 9999999999){
+                socketIo.emit('send-transacao-response', {data: doc, message: data.data});
+              }
             };
           };
         }
@@ -580,21 +607,6 @@ export class AppService implements OnModuleInit {
             json.push({"cmds": [], "txt": ""},{"cmds": [], "txt": ""},{"cmds": [], "txt": ""},{"cmds": [], "txt": ""})
             let i2 = 0
             let intervalo2 = 0
-        
-            // for(i2 = 0; i2<30;i2++){
-        
-            //     let a = response.ComprovanteTEF.substr(intervalo2, 38).replace(/(\r\n|\n|\r)/gm, "")
-            //     console.log(a)
-        
-            //     let itemComprovanteTEF = {
-            //         "cmds": ["centerenable"],
-            //         "txt": response.ComprovanteTEF.substr(intervalo2, 38).replace(/(\r\n|\n|\r)/gm, "")
-            //     }
-        
-            //     json.push(itemComprovanteTEF)
-            //     i2 += 1
-            //     intervalo2 += 38
-            // }
 
             json.push({
               "cmds": ["centerenable"],
@@ -614,7 +626,7 @@ export class AppService implements OnModuleInit {
                   const socket = await new WebSocket('ws://localhost:8181/client');
                   socket.onopen = async function() {
                     let mess = JSON.stringify({
-                      traNsu: doc.traNsu,
+                      traNsu: doc.transacao.traNsu,
                       message: `Sem conexão com a impressora. Por favor, verifique.`
                     })
                     await socket.send(mess);
@@ -657,16 +669,7 @@ export class AppService implements OnModuleInit {
                   let dataLength = `{"IdProdesp":${response.IdProdesp},"IdPotencial":"${response.IdPotencial}","Status":0}`
                   await promiseSocket.write(`${("00000" + dataLength.length).slice(-5)}02{"IdProdesp":${response.IdProdesp},"IdPotencial":"${response.IdPotencial}","Status":0}`)
                   const resp = (await promiseSocket.readAll()) as Buffer
-                  // const socket = await new WebSocket('ws://localhost:8181/client');
-                  // socket.onopen = async function() {
-                  //   await socket.send(JSON.stringify({
-                  //     traNsu: response.IdPotencial,
-                  //     message: `${JSON.parse(resp.toString()).mensagem}`
-                  //   }));
-                  //   socket.onmessage = function(data) {
-                  //     console.log(data.data);
-                  //   };
-                  // };
+                  
                   if (resp) {
                     console.log(resp.toString())
                   }
@@ -704,13 +707,17 @@ export class AppService implements OnModuleInit {
         const socket = await new WebSocket('ws://localhost:8181/client');
         socket.onopen = async function() {
           let mess = JSON.stringify({
-            traNsu: doc.traNsu,
+            traNsu: doc.transacao.traNsu,
             message: message.replace('"', '').substr(0, message.length -1),
             data: response
           })
           await socket.send(mess);
           socket.onmessage = function(data) {
             console.log(data.data);
+            //management
+            if(doc.transacao.id == 9999999999){
+              socketIo.emit('send-transacao-response', {data: doc, message: data.data});
+            }
           };
         };
       }
@@ -725,13 +732,17 @@ export class AppService implements OnModuleInit {
       const socket = await new WebSocket('ws://localhost:8181/client');
       socket.onopen = async function() {
         let mess = JSON.stringify({
-          traNsu: doc.traNsu,
+          traNsu: doc.transacao.traNsu,
           message: 'Erro na conexão do socket',
-          data: ''
+          data: 'Erro na conexão do socket'
         })
         await socket.send(mess);
         socket.onmessage = function(data) {
           console.log(data.data);
+          //management
+          if(doc.transacao.id == 9999999999){
+            socketIo.emit('send-transacao-response', {data: doc, message: data.data});
+          }
         };
       };
 
@@ -744,41 +755,36 @@ export class AppService implements OnModuleInit {
     let transacao = {}
     let tamanhoComprovante = 0
 
-    if(doc.codigoServico == 1){
+    if(doc.transacao.codigoServico == 1){
       tamanhoComprovante = 38
     }else if(
-      doc.codigoServico == 2 || 
-      doc.codigoServico == 3 || 
-      doc.codigoServico == 4 || 
-      doc.codigoServico == 5
+      doc.transacao.codigoServico == 2 || 
+      doc.transacao.codigoServico == 3 || 
+      doc.transacao.codigoServico == 4 || 
+      doc.transacao.codigoServico == 5
       ){
       tamanhoComprovante = 48
     }
 
-    // const clientConfirmaImpressao = new net.Socket();
-    // const promiseSocket = new PromiseSocket(clientConfirmaImpressao)
-    // await promiseSocket.connect({port: 5002, host: environment.socketPotencial.url})
-    // let dataLength = `{"IdPotencial":${doc.traNsu},"IdProdesp":"${doc.id}"}`
-    // await promiseSocket.write(`${("00000" + dataLength.length).slice(-5)}03{"IdPotencial":${doc.traNsu},"IdProdesp":"${doc.id}"}`)
-    // const resp = (await promiseSocket.readAll()) as Buffer
-    
-    // console.log(resp.toString())
-
     let client = new net.Socket();
     await client.connect(5002, environment.socketPotencial.url, async function() {
-      let dataLength = `{"IdPotencial":${doc.traNsu},"IdProdesp":"${doc.id}"}`
-      await client.write(`${("00000" + dataLength.length).slice(-5)}03{"IdPotencial":${doc.traNsu},"IdProdesp":"${doc.id}"}`);
+      let dataLength = `{"IdPotencial":${doc.transacao.traNsu},"IdProdesp":"${doc.transacao.id}"}`
+      await client.write(`${("00000" + dataLength.length).slice(-5)}03{"IdPotencial":${doc.transacao.traNsu},"IdProdesp":"${doc.transacao.id}"}`);
       
       const socket = await new WebSocket('ws://localhost:8181/client');
       socket.onopen = async function() {
         let mess = JSON.stringify({
-          traNsu: doc.traNsu,
+          traNsu: doc.transacao.traNsu,
           message: 'Enviando remoção de pendência',
           data: ''
         })
         await socket.send(mess);
         socket.onmessage = function(data) {
           console.log(data.data);
+          if(doc.transacao.id == 9999999999){
+            console.log('teste')
+            socketIo.emit('send-transacao-response', {data: doc, message: data.data});
+          }
         };
       };
     });
@@ -802,7 +808,7 @@ export class AppService implements OnModuleInit {
           const socket = await new WebSocket('ws://localhost:8181/client');
           socket.onopen = async function() {
             let mess = JSON.stringify({
-              traNsu: doc.traNsu,
+              traNsu: doc.transacao.traNsu,
               message: response.message,
               data: response
             })
@@ -815,7 +821,7 @@ export class AppService implements OnModuleInit {
           const socket = await new WebSocket('ws://localhost:8181/client');
           socket.onopen = async function() {
             let mess = JSON.stringify({
-              traNsu: doc.traNsu,
+              traNsu: doc.transacao.traNsu,
               message: response.StatusMensagem,
               data: response
             })
@@ -888,7 +894,7 @@ export class AppService implements OnModuleInit {
                   const socket = await new WebSocket('ws://localhost:8181/client');
                   socket.onopen = async function() {
                     let mess = JSON.stringify({
-                      traNsu: doc.traNsu,
+                      traNsu: doc.transacao.traNsu,
                       message: `Sem conexão com a impressora. Por favor, verifique.`
                     })
                     await socket.send(mess);
@@ -969,7 +975,7 @@ export class AppService implements OnModuleInit {
         const socket = await new WebSocket('ws://localhost:8181/client');
         socket.onopen = async function() {
           let mess = JSON.stringify({
-            traNsu: doc.traNsu,
+            traNsu: doc.transacao.traNsu,
             message: message.replace('"', '').substr(0, message.length -1),
             data: response
           })
@@ -990,7 +996,7 @@ export class AppService implements OnModuleInit {
       const socket = await new WebSocket('ws://localhost:8181/client');
       socket.onopen = async function() {
         let mess = JSON.stringify({
-          traNsu: doc.traNsu,
+          traNsu: doc.transacao.traNsu,
           message: 'Erro na conexão do socket remoção de pendência',
           data: ''
         })

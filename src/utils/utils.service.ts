@@ -35,6 +35,7 @@ export class UtilsService {
     async getStatusImpressora(){
         try {
             let impressora = await axios.get(`${environment.impressora.url}/api/getstatusprinter`)
+            console.log(impressora.data)
             return impressora.data
         } catch(error){
             console.log(error)
